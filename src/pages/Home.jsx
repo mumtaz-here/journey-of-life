@@ -1,108 +1,104 @@
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { BookOpen, BarChart2, Bookmark, User, HelpCircle } from 'lucide-react';
+// src/pages/Home.jsx
+import { useEffect, useRef, useState } from "react";
+import { format } from "date-fns";
+import id from "date-fns/locale/id";
+import { getEntries, saveEntry } from "../utils/storage.js";
 
 export default function Home() {
-  const features = [
-    {
-      icon: BookOpen,
-      title: 'My Journey',
-      description: 'Record your daily thoughts and experiences',
-      link: '/journey',
-      color: 'bg-blue-100 text-blue-600',
-    },
-    {
-      icon: BookOpen,
-      title: 'Summary',
-      description: 'View summaries of your entries',
-      link: '/summary',
-      color: 'bg-green-100 text-green-600',
-    },
-    {
-      icon: BarChart2,
-      title: 'Progress',
-      description: 'Track your mood and habits over time',
-      link: '/progress',
-      color: 'bg-purple-100 text-purple-600',
-    },
-    {
-      icon: Bookmark,
-      title: 'Highlights',
-      description: 'Save and revisit important moments',
-      link: '/highlights',
-      color: 'bg-yellow-100 text-yellow-600',
-    },
-  ];
+  const [entry, setEntry] = useState("");
+  const [items, setItems] = useState([]);
+  const textareaRef = useRef(null);
+
+  // pertama kali load: ambil dari localStorage
+  useEffect(() => {
+    setItems(getEntries());
+  }, []);
+
+  // auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + "px";
+    }
+  }, [entry]);
+
+  const onSubmit = (e) => {
+    e.preventDefault();
+    const text = entry.trim();
+    if (!text) return;
+
+    // simpan ke localStorage
+    const added = saveEntry({ text });
+    // update UI (masukkan paling atas)
+    setItems((prev) => [added, ...prev]);
+    setEntry("");
+  };
 
   return (
-    <div className="py-8">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="text-center mb-12"
-      >
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">Welcome to Your Wellness Journey</h1>
-        <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-          A safe space to reflect, grow, and track your personal journey towards better mental health and wellbeing.
-        </p>
-      </motion.div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-        {features.map((feature, index) => (
-          <motion.div
-            key={feature.title}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 + index * 0.1 }}
-            className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow"
-          >
-            <div className={`${feature.color} w-12 h-12 rounded-lg flex items-center justify-center mb-4`}>
-              <feature.icon className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">{feature.title}</h3>
-            <p className="text-gray-600 mb-4">{feature.description}</p>
-            <Link
-              to={feature.link}
-              className="inline-flex items-center text-primary-600 font-medium hover:text-primary-700"
-            >
-              Get started
-              <svg
-                className="ml-1 w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </Link>
-          </motion.div>
-        ))}
+    <div className="h-full flex flex-col bg-gray-50">
+      {/* Header sederhana */}
+      <div className="sticky top-0 z-10 bg-white border-b border-neutral-200">
+        <div className="max-w-3xl mx-auto px-4 py-3">
+          <h1 className="text-base font-semibold text-neutral-900">Catatan</h1>
+          <p className="text-xs text-neutral-500">
+            Tulis bebas; catatanmu tersimpan di perangkat ini.
+          </p>
+        </div>
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="bg-white rounded-xl shadow-sm p-8 text-center"
-      >
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Start Your Journey Today</h2>
-        <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
-          Take the first step towards better mental health. Your journey is unique, and we're here to support you every step of the way.
-        </p>
-        <Link
-          to="/journey"
-          className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-        >
-          Begin Journaling
-        </Link>
-      </motion.div>
+      {/* Daftar catatan */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-3xl mx-auto px-4 py-4 space-y-4">
+          {items.length === 0 ? (
+            <div className="text-center text-neutral-400 py-16">
+              Belum ada catatan. Mulai dari hal kecil pun boleh 🌿
+            </div>
+          ) : (
+            items.map((it) => (
+              <article
+                key={it.id}
+                className="bg-white border border-neutral-200 rounded-xl shadow-sm p-4"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-neutral-500">
+                    {format(new Date(Number(it.createdAt)), "EEEE, d MMM yyyy HH:mm", { locale: id })}
+                  </span>
+                </div>
+                <p className="text-sm text-neutral-800 whitespace-pre-line">{it.text}</p>
+              </article>
+            ))
+          )}
+        </div>
+      </main>
+
+      {/* Composer */}
+      <div className="border-t border-neutral-200 bg-white">
+        <form onSubmit={onSubmit} className="max-w-3xl mx-auto px-4 py-3">
+          <div className="rounded-xl border border-neutral-200 bg-neutral-50 focus-within:bg-white">
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              value={entry}
+              onChange={(e) => setEntry(e.target.value)}
+              placeholder="Bagaimana harimu?"
+              className="w-full bg-transparent resize-none border-0 focus:ring-0 text-sm p-3"
+            />
+            <div className="flex items-center justify-end border-t border-neutral-100 p-2">
+              <button
+                type="submit"
+                disabled={!entry.trim()}
+                className={`px-3 py-1.5 text-sm rounded-lg ${
+                  entry.trim()
+                    ? "bg-neutral-900 text-white"
+                    : "bg-neutral-200 text-neutral-500 cursor-not-allowed"
+                }`}
+              >
+                Simpan
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
