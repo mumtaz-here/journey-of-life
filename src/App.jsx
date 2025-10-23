@@ -1,21 +1,21 @@
-// src/App.jsx
+// src/app.jsx
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import SectionNav from "./components/SectionNav.jsx";
+import SectionNav from "./components/section-nav.jsx";
 
 // Halaman CORE (sudah ada punyamu)
-import Home from "./pages/Home.jsx";            // My Journey (kamu bisa pakai MyJourney.jsx kalau namanya itu)
-import Summary from "./pages/Summary.jsx";
-import Progress from "./pages/Progress.jsx";
-import Highlights from "./pages/Highlights.jsx";
+import Home from "./pages/home.jsx";            // My Journey (kamu bisa pakai MyJourney.jsx kalau namanya itu)
+import Summary from "./pages/summary.jsx";
+import Progress from "./pages/progress.jsx";
+import Highlights from "./pages/highlights.jsx";
 
 // Halaman HABIT (baru)
-import HabitMain from "./pages/habit/HabitMain.jsx";
-import HabitBuild from "./pages/habit/HabitBuild.jsx";
-import HabitInsight from "./pages/habit/HabitInsight.jsx";
+import HabitMain from "./pages/habit/habit-main.jsx";
+import HabitBuild from "./pages/habit/habit-build.jsx";
+import HabitInsight from "./pages/habit/habit-insight.jsx";
 
 // Halaman BACAAN (baru)
-import BacaanCerita from "./pages/bacaan/BacaanCerita.jsx";
-import BacaanHarian from "./pages/bacaan/BacaanHarian.jsx";
+import BacaanCerita from "./pages/bacaan/bacaan-cerita.jsx";
+import BacaanHarian from "./pages/bacaan/bacaan-harian.jsx";
 
 import "./App.css";
 

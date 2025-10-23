@@ -25,10 +25,20 @@ function isSimilar(word, list) {
   return list.some((target) => levenshtein(word, target) <= 2);
 }
 
+// ✿ Pecah teks jadi kata yang bersih (tanpa tanda baca)
+function tokenize(t) {
+  return t
+    .replace(/[^\p{L}\p{N}\s]/gu, " ") // buang tanda baca/simbol → spasi
+    .replace(/\s+/g, " ")              // rapikan spasi berlebih
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+}
+
 // ✿ Analisis utama
 export function analyzeText(textRaw) {
   const text = textRaw.toLowerCase();
-  const words = text.split(/\s+/);
+  const words = tokenize(text);
 
   const result = {
     type: null, // summary / highlight

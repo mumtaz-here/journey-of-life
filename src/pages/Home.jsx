@@ -1,8 +1,8 @@
-// src/pages/Home.jsx
 import { useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
 import id from "date-fns/locale/id";
 import { getEntries, saveEntry } from "../utils/storage.js";
+import { analyzeText } from "../utils/parser.js";
 
 export default function Home() {
   const [entry, setEntry] = useState("");
@@ -18,16 +18,22 @@ export default function Home() {
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + "px";
+      textareaRef.current.style.height =
+        Math.min(textareaRef.current.scrollHeight, 200) + "px";
     }
   }, [entry]);
 
+  // ✿ submit catatan + analisis
   const onSubmit = (e) => {
     e.preventDefault();
     const text = entry.trim();
     if (!text) return;
 
-    // simpan ke localStorage
+    // jalankan analisis AI ringan
+    const analysis = analyzeText(text);
+    console.log("🪞 Hasil Analisis:", analysis);
+
+    // simpan teks mentah ke localStorage (belum analisis)
     const added = saveEntry({ text });
     // update UI (masukkan paling atas)
     setItems((prev) => [added, ...prev]);
@@ -61,10 +67,16 @@ export default function Home() {
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs text-neutral-500">
-                    {format(new Date(Number(it.createdAt)), "EEEE, d MMM yyyy HH:mm", { locale: id })}
+                    {format(
+                      new Date(Number(it.createdAt)),
+                      "EEEE, d MMM yyyy HH:mm",
+                      { locale: id }
+                    )}
                   </span>
                 </div>
-                <p className="text-sm text-neutral-800 whitespace-pre-line">{it.text}</p>
+                <p className="text-sm text-neutral-800 whitespace-pre-line">
+                  {it.text}
+                </p>
               </article>
             ))
           )}

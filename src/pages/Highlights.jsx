@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import id from "date-fns/locale/id";
-import Icon from "../components/Icon.jsx";
+import Icon from "../components/icon.jsx";
 
 export default function Highlights({ onBack }) {
   const [highlights, setHighlights] = useState([]);
@@ -18,7 +18,7 @@ export default function Highlights({ onBack }) {
   };
 
   useEffect(() => {
-    const saved = localStorage.getItem("journeyHighlights");
+    const saved = localStorage.getItem("journey-highlights");
     if (saved) setHighlights(JSON.parse(saved));
 
     // contoh saran otomatis sederhana
@@ -46,7 +46,7 @@ export default function Highlights({ onBack }) {
       h.id === editingId ? { ...h, ...draft } : h
     );
     setHighlights(updated);
-    localStorage.setItem("journeyHighlights", JSON.stringify(updated));
+    localStorage.setItem("journey-highlights", JSON.stringify(updated));
     setEditingId(null);
   };
 
@@ -57,10 +57,11 @@ export default function Highlights({ onBack }) {
       text: sug.text,
       status: "pending",
       note: "",
+      createdAt: Date.now(),
     };
     const updated = [newItem, ...highlights];
     setHighlights(updated);
-    localStorage.setItem("journeyHighlights", JSON.stringify(updated));
+    localStorage.setItem("journey-highlights", JSON.stringify(updated));
   };
 
   return (
@@ -95,7 +96,6 @@ export default function Highlights({ onBack }) {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
-
         {/* Bagian saran ringan */}
         {suggestions.length > 0 && (
           <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-4">
@@ -140,9 +140,13 @@ export default function Highlights({ onBack }) {
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm text-gray-600">
-                    {format(new Date(it.id), "EEEE, d MMM yyyy HH:mm", {
-                      locale: id,
-                    })}
+                    {it.createdAt
+                      ? format(
+                          new Date(Number(it.createdAt)),
+                          "EEEE, d MMM yyyy HH:mm",
+                          { locale: id }
+                        )
+                      : "—"}
                   </span>
                   <Icon name="star" className="w-4 h-4 text-rose-600" />
                 </div>

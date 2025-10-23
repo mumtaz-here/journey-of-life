@@ -9,7 +9,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import { format, parse } from "date-fns";
+import { format } from "date-fns";
 import id from "date-fns/locale/id";
 
 export default function Summary() {
@@ -17,52 +17,56 @@ export default function Summary() {
   const [showDetails, setShowDetails] = useState(false);
   const [entries, setEntries] = useState([]);
 
-  // ambil semua catatan dari localStorage
+  // ✿ ambil semua catatan dari localStorage yang punya analisis
   useEffect(() => {
-    const saved = localStorage.getItem("journeyEntries");
-    if (saved) setEntries(JSON.parse(saved));
+    try {
+      const saved = localStorage.getItem("journey-entries");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const filtered = parsed.filter((e) => e.analysis);
+        setEntries(filtered);
+      }
+    } catch (err) {
+      console.error("Failed to load entries:", err);
+    }
   }, []);
 
-  // fungsi buat bikin ringkasan sederhana
+  // ✿ bikin ringkasan dari hasil analisis parser
   const summarizeEntries = (entries) => {
     if (!entries.length) return null;
 
     // total entri
     const total = entries.length;
 
-    // hitung emosi (pakai kata kunci sederhana)
-    const moodKeywords = {
-      bahagia: ["senang", "gembira", "yeey", "hepi", "lega"],
-      sedih: ["sedih", "kecewa", "menangis", "capek", "hilang"],
-      marah: ["marah", "kesal", "bete"],
-      tenang: ["tenang", "santai", "lega"],
-      cemas: ["cemas", "takut", "gelisah"],
-    };
-
-    const moodCounts = {};
+    // hitung kategori emosi dari parser
+    const emotionCounts = {};
     entries.forEach((e) => {
-      const text = e.text.toLowerCase();
-      for (const mood in moodKeywords) {
-        if (moodKeywords[mood].some((w) => text.includes(w))) {
-          moodCounts[mood] = (moodCounts[mood] || 0) + 1;
-        }
+      const emo = e.analysis?.category;
+      if (emo) {
+        emotionCounts[emo] = (emotionCounts[emo] || 0) + 1;
       }
     });
 
-    const dominantMood =
-      Object.keys(moodCounts).length > 0
-        ? Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0][0]
+    const dominantEmotion =
+      Object.keys(emotionCounts).length > 0
+        ? Object.entries(emotionCounts).sort((a, b) => b[1] - a[1])[0][0]
         : "netral";
 
-    // ambil tanggal terbaru
-    const lastDate = entries[0]?.date || "";
+    // tanggal terakhir
+    const lastDate = entries[0]?.createdAt
+      ? format(new Date(Number(entries[0].createdAt)), "d MMM yyyy", {
+          locale: id,
+        })
+      : "—";
 
-    // ambil kata kunci umum (misal kata “beli”, “bayar”)
+    // hitung jenis aktivitas dari analysis.note
     const keywordCounts = {};
     entries.forEach((e) => {
-      const words = e.text.toLowerCase().split(/\s+/);
+      const note = e.analysis?.note?.toLowerCase() || "";
+      if (!note) return;
+      const words = note.split(/\s+/);
       words.forEach((w) => {
-        if (["beli", "bayar", "makan", "kerja", "belajar"].includes(w)) {
+        if (["beli", "bayar", "tugas", "bantu", "rencana", "emosi"].includes(w)) {
           keywordCounts[w] = (keywordCounts[w] || 0) + 1;
         }
       });
@@ -72,7 +76,7 @@ export default function Summary() {
       .sort((a, b) => keywordCounts[b] - keywordCounts[a])
       .slice(0, 3);
 
-    return { total, dominantMood, lastDate, topKeywords };
+    return { total, dominantEmotion, lastDate, topKeywords };
   };
 
   const summary = summarizeEntries(entries);
@@ -142,7 +146,7 @@ export default function Summary() {
                   <BarChart2 className="w-5 h-5 text-[#A68B73]" />
                 </div>
                 <p className="text-2xl font-bold capitalize text-gray-900">
-                  {summary.dominantMood}
+                  {summary.dominantEmotion}
                 </p>
               </div>
             </div>
@@ -192,8 +196,16 @@ export default function Summary() {
                       key={e.id}
                       className="mb-2 text-sm text-gray-600 border-b border-gray-50 pb-2"
                     >
-                      <span className="text-gray-500">{e.date}</span>
-                      <p className="mt-1">{e.text}</p>
+                      <span className="text-gray-500 text-xs">
+                        {e.createdAt
+                          ? format(
+                              new Date(Number(e.createdAt)),
+                              "d MMM yyyy, HH:mm",
+                              { locale: id }
+                            )
+                          : "—"}
+                      </span>
+                      <p className="mt-1">{e.analysis?.note}</p>
                     </div>
                   ))}
                 </div>
