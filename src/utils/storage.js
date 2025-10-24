@@ -1,79 +1,165 @@
-const KEY_ENTRIES = "journey-entries";
-const KEY_SUMMARIES = "journey-summaries";
-const KEY_HIGHLIGHTS = "journey-highlights";
-const KEY_REFLECTIONS = "journey-weekly-reflections";
+/**
+ * Journey of Life — Storage Utility (Playful Serenity Edition)
+ * ------------------------------------------------------------
+ * Purpose: calm, minimal wrapper around localStorage for all app data.
+ * Designed for gentle persistence: readable keys, no surprises,
+ * easy to migrate to backend later.
+ *
+ * Principles:
+ * - Prefix every key with "journey-" to stay organized.
+ * - Fail gracefully (no console spam, no errors on quota).
+ * - Keep operations synchronous and deterministic.
+ * - Serialize JSON safely (reviver-ready for future backend sync).
+ *
+ * Exported surface:
+ *   save(type, data)
+ *   load(type)
+ *   loadAll()
+ *   remove(type)
+ *   clearAll()
+ *   getMeta()
+ */
 
-/** Ambil semua entri (array paling baru di atas) */
-export function getEntries() {
+const PREFIX = 'journey-';
+
+/**
+ * Safe JSON stringify with fallback.
+ */
+function safeStringify(value) {
   try {
-    const raw = localStorage.getItem(KEY_ENTRIES);
-    const arr = raw ? JSON.parse(raw) : [];
-    return arr.sort((a, b) => b.createdAt - a.createdAt);
+    return JSON.stringify(value);
   } catch {
-    return [];
+    return '{}';
   }
 }
 
-/** Simpan satu entri baru (teks + hasil analisis opsional) */
-export function saveEntry({ text, analysis }) {
-  const now = Date.now();
-  const entry = {
-    id: now,
-    text: (text || "").trim(),
-    analysis: analysis || null,
-    createdAt: now,
-  };
-
-  const all = getEntries();
-  const next = [entry, ...all];
-  localStorage.setItem(KEY_ENTRIES, JSON.stringify(next));
-
-  if (analysis?.type === "summary") addToSummaries(entry);
-  if (analysis?.type === "highlight") addToHighlights(entry);
-  if (analysis) addToWeeklyReflections(entry); // ✨ tambah refleksi mingguan
-
-  return entry;
-}
-
-/** Tambahkan ke daftar summary */
-export function addToSummaries(entry) {
-  const raw = localStorage.getItem(KEY_SUMMARIES);
-  const arr = raw ? JSON.parse(raw) : [];
-  const next = [entry, ...arr];
-  localStorage.setItem(KEY_SUMMARIES, JSON.stringify(next));
-}
-
-/** Tambahkan ke daftar highlight */
-export function addToHighlights(entry) {
-  const raw = localStorage.getItem(KEY_HIGHLIGHTS);
-  const arr = raw ? JSON.parse(raw) : [];
-  const next = [entry, ...arr];
-  localStorage.setItem(KEY_HIGHLIGHTS, JSON.stringify(next));
-}
-
-/** ✿ Simpan refleksi mingguan sederhana */
-export function addToWeeklyReflections(entry) {
-  const raw = localStorage.getItem(KEY_REFLECTIONS);
-  const arr = raw ? JSON.parse(raw) : [];
-
-  // hitung minggu dari timestamp
-  const week = new Date(entry.createdAt).getWeekNumber
-    ? new Date(entry.createdAt).getWeekNumber()
-    : Math.ceil(entry.createdAt / (7 * 24 * 60 * 60 * 1000));
-
-  const existing = arr.find((r) => r.week === week);
-  if (existing) {
-    existing.entries.push(entry);
-  } else {
-    arr.push({ week, entries: [entry] });
+/**
+ * Safe JSON parse with default fallback.
+ */
+function safeParse(value, fallback = null) {
+  try {
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
   }
-  localStorage.setItem(KEY_REFLECTIONS, JSON.stringify(arr));
 }
 
-/** Hapus semua (buat debugging) */
-export function clearEntries() {
-  localStorage.removeItem(KEY_ENTRIES);
-  localStorage.removeItem(KEY_SUMMARIES);
-  localStorage.removeItem(KEY_HIGHLIGHTS);
-  localStorage.removeItem(KEY_REFLECTIONS);
+/**
+ * Build a full storage key from type.
+ * e.g. type='entries' → 'journey-entries'
+ */
+function key(type) {
+  return `${PREFIX}${type}`;
 }
+
+/**
+ * Save data into localStorage.
+ * @param {string} type - logical data type (entries, habits, highlights, reflections, etc.)
+ * @param {any} data - serializable value
+ */
+function save(type, data) {
+  try {
+    const payload = {
+      savedAt: new Date().toISOString(),
+      data,
+    };
+    localStorage.setItem(key(type), safeStringify(payload));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Load one dataset by type.
+ * Returns the parsed object or null if not found.
+ */
+function load(type) {
+  const raw = localStorage.getItem(key(type));
+  const parsed = safeParse(raw);
+  return parsed ? parsed.data : null;
+}
+
+/**
+ * Load all journey-* keys into a single object.
+ * Returns { entries, habits, highlights, reflections, ... }
+ */
+function loadAll() {
+  const result = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(PREFIX)) {
+      const type = k.replace(PREFIX, '');
+      const raw = localStorage.getItem(k);
+      const parsed = safeParse(raw);
+      if (parsed && parsed.data !== undefined) {
+        result[type] = parsed.data;
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * Remove a single dataset by type.
+ */
+function remove(type) {
+  try {
+    localStorage.removeItem(key(type));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Clear all journey-* data (non-destructive notice).
+ * Does not affect other localStorage keys.
+ */
+function clearAll() {
+  const toRemove = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(PREFIX)) toRemove.push(k);
+  }
+  toRemove.forEach(k => localStorage.removeItem(k));
+  return toRemove.length;
+}
+
+/**
+ * Get lightweight metadata summary about stored data.
+ */
+function getMeta() {
+  const meta = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(PREFIX)) {
+      const type = k.replace(PREFIX, '');
+      const raw = localStorage.getItem(k);
+      const parsed = safeParse(raw, {});
+      meta.push({
+        type,
+        size: raw ? raw.length : 0,
+        savedAt: parsed.savedAt || null,
+      });
+    }
+  }
+  return meta.sort((a, b) => a.type.localeCompare(b.type));
+}
+
+// ---- Export surface -------------------------------------------------------
+
+export {
+  save,
+  load,
+  loadAll,
+  remove,
+  clearAll,
+  getMeta
+};
+
+export const _internals = {
+  key,
+  safeStringify,
+  safeParse,
+};

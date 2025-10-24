@@ -1,55 +1,52 @@
-// src/app.jsx
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import SectionNav from "./components/section-nav.jsx";
+/**
+ * Journey of Life — App.jsx (Final)
+ * ---------------------------------
+ * Integrates all pages, transitions, cursor glow, and navbar.
+ */
 
-// Halaman CORE (sudah ada punyamu)
-import Home from "./pages/home.jsx";            // My Journey (kamu bisa pakai MyJourney.jsx kalau namanya itu)
-import Summary from "./pages/summary.jsx";
-import Progress from "./pages/progress.jsx";
-import Highlights from "./pages/highlights.jsx";
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import PageWrapper from "./components/page-wrapper";
+import CursorGlow from "./components/cursor-glow";
+import Navbar from "./components/navbar";
 
-// Halaman HABIT (baru)
-import HabitMain from "./pages/habit/habit-main.jsx";
-import HabitBuild from "./pages/habit/habit-build.jsx";
-import HabitInsight from "./pages/habit/habit-insight.jsx";
-
-// Halaman BACAAN (baru)
-import BacaanCerita from "./pages/bacaan/bacaan-cerita.jsx";
-import BacaanHarian from "./pages/bacaan/bacaan-harian.jsx";
-
-import "./App.css";
+import Home from "./pages/home";
+import MyJourney from "./pages/my-journey";
+import Summary from "./pages/summary";
+import Progress from "./pages/progress";
+import Highlights from "./pages/highlights";
+import HabitMain from "./pages/habits/habit-main";
+import HabitPlan from "./pages/habits/habit-plan";
+import HabitInsight from "./pages/habits/habit-insight";
+import MyStory from "./pages/my-story";
+import Settings from "./pages/settings";
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <div className="h-screen w-full flex flex-col bg-gray-50">
-        {/* SectionNav tampil di semua halaman; tenang & non-intrusif */}
-        <SectionNav />
+    <Router>
+      <div className="min-h-screen w-full bg-gradient-to-br from-[#FAF7F2] via-[#F6F2EC] to-[#EDE7E0] text-[#2E2A26]">
+        {/* ✨ Global effects */}
+        <CursorGlow />
 
-        <div className="flex-1 overflow-hidden">
-          <div className="max-w-3xl mx-auto h-full">
-            <Routes>
-              {/* CORE */}
-              <Route path="/" element={<Home />} />
-              <Route path="/summary" element={<Summary />} />
-              <Route path="/progress" element={<Progress />} />
-              <Route path="/highlights" element={<Highlights />} />
+        {/* 🌿 Page transitions */}
+        <PageWrapper>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/my-journey" element={<MyJourney />} />
+            <Route path="/summary" element={<Summary />} />
+            <Route path="/progress" element={<Progress />} />
+            <Route path="/highlights" element={<Highlights />} />
+            <Route path="/habits" element={<HabitMain />} />
+            <Route path="/habits/plan" element={<HabitPlan />} />
+            <Route path="/habits/insight" element={<HabitInsight />} />
+            <Route path="/my-story" element={<MyStory />} />
+            <Route path="/settings" element={<Settings />} />
+          </Routes>
+        </PageWrapper>
 
-              {/* HABIT */}
-              <Route path="/habit/utama" element={<HabitMain />} />
-              <Route path="/habit/rencana" element={<HabitBuild />} />
-              <Route path="/habit/insight" element={<HabitInsight />} />
-
-              {/* BACAAN */}
-              <Route path="/bacaan/cerita" element={<BacaanCerita />} />
-              <Route path="/bacaan/harian" element={<BacaanHarian />} />
-
-              {/* fallback */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </div>
-        </div>
+        {/* 🪷 Floating Navbar */}
+        <Navbar />
       </div>
-    </BrowserRouter>
+    </Router>
   );
 }

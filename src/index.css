@@ -1,39 +1,78 @@
 @import "tailwindcss";
 
-/* Definisikan token warna "primary" supaya bisa dipakai oleh kelas utilitas (bg-*, text-*, ring-*, dsb) */
+/* ----------------------------------------
+   Journey of Life — Global Style
+   Playful Serenity Edition (v4 syntax)
+   ---------------------------------------- */
+
+:root {
+  --bg-base: #FAF7F2;
+  --text-main: #2E2A26;
+  --text-soft: #7E7A74;
+  --accent: #CBB9A8;
+  --accent-green: #9EC3B0;
+  --accent-coral: #F2B8A2;
+  --border-soft: #E8E1DA;
+}
+
+/* --- Base feel --- */
+html,
+body {
+  @apply bg-[var(--bg-base)] text-[var(--text-main)] antialiased;
+  font-family: "Inter", "DM Sans", system-ui, sans-serif;
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  scroll-behavior: smooth;
+}
+
+/* --- Headings --- */
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Playfair Display", "Cormorant Garamond", serif;
+  letter-spacing: 0.02em;
+}
+
+/* --- Animations & Motion --- */
 @theme {
-  --color-primary-50:  #fef2f2;
-  --color-primary-100: #fee2e2;
-  --color-primary-200: #fecaca;
-  --color-primary-300: #fca5a5;
-  --color-primary-400: #f87171;
-  --color-primary-500: #ef4444; /* ini yang dipakai ring-primary-500 */
-  --color-primary-600: #dc2626;
-  --color-primary-700: #b91c1c;
-  --color-primary-800: #991b1b;
-  --color-primary-900: #7f1d1d;
-
-  /* (opsional) kalau kamu punya secondary & accent, bisa ditambah juga nanti */
-}
-
-/* Base minimal biar aman */
-@layer base {
-  body {
-    @apply bg-gray-50 text-gray-900 font-sans antialiased;
-  }
-}
-
-@keyframes fadein {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 }
 
 .animate-fadein {
-  animation: fadein 0.25s ease-out;
+  animation: fadeIn 0.6s ease-out both;
+}
+
+/* --- Form controls --- */
+input, textarea, select, button {
+  transition: all 0.25s ease-out;
+  outline: none;
+}
+
+button:focus-visible,
+input:focus-visible {
+  @apply ring-2 ring-[var(--accent)] ring-offset-2;
+}
+
+/* --- Scrollbar --- */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(150, 150, 150, 0.25);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(150, 150, 150, 0.35);
+}
+
+/* --- Card shadow --- */
+.shadow-soft {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* --- Text selection --- */
+::selection {
+  background-color: var(--accent-green);
+  color: white;
 }

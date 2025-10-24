@@ -1,116 +1,182 @@
-import { useEffect, useRef, useState } from "react";
-import { format } from "date-fns";
-import id from "date-fns/locale/id";
-import { getEntries, saveEntry } from "../utils/storage.js";
-import { analyzeText } from "../utils/parser.js";
+/**
+ * Journey of Life — Page: Home
+ * ----------------------------
+ * The calm center of the app.
+ * Includes:
+ * - Quote of the day (rotating)
+ * - 3 Light Tasks for Now
+ * - Today's Priorities bar
+ * - Journal input area
+ * - Recent entries preview
+ */
+
+import React, { useEffect, useState } from "react";
+import Quote from "../components/quote";
+import { load, save } from "../utils/storage";
+import { parseEntry } from "../utils/parser";
+
+const container =
+  "max-w-2xl mx-auto px-5 py-8 flex flex-col gap-8 text-[#2E2A26]";
 
 export default function Home() {
-  const [entry, setEntry] = useState("");
-  const [items, setItems] = useState([]);
-  const textareaRef = useRef(null);
+  const [journal, setJournal] = useState("");
+  const [entries, setEntries] = useState([]);
+  const [priorities, setPriorities] = useState(() => load("priorities") || []);
+  const [lightTasks, setLightTasks] = useState(() => load("light-tasks") || []);
 
-  // pertama kali load: ambil dari localStorage
+  // Load previous entries
   useEffect(() => {
-    setItems(getEntries());
+    const saved = load("entries") || [];
+    setEntries(saved);
   }, []);
 
-  // auto-resize textarea
+  // Persist changes
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height =
-        Math.min(textareaRef.current.scrollHeight, 200) + "px";
+    save("priorities", priorities);
+    save("light-tasks", lightTasks);
+  }, [priorities, lightTasks]);
+
+  function addPriority() {
+    const text = prompt("Add a focus for today?");
+    if (text && text.trim()) {
+      setPriorities([...priorities, text.trim()]);
     }
-  }, [entry]);
+  }
 
-  // ✿ submit catatan + analisis
-  const onSubmit = (e) => {
-    e.preventDefault();
-    const text = entry.trim();
-    if (!text) return;
+  function removePriority(i) {
+    setPriorities(priorities.filter((_, idx) => idx !== i));
+  }
 
-    // jalankan analisis AI ringan
-    const analysis = analyzeText(text);
-    console.log("🪞 Hasil Analisis:", analysis);
+  function handleSaveEntry() {
+    if (!journal.trim()) return;
+    const newEntry = {
+      id: Date.now(),
+      text: journal.trim(),
+      analysis: parseEntry(journal.trim()),
+      created_at: new Date().toISOString(),
+    };
+    const updated = [newEntry, ...entries];
+    setEntries(updated);
+    save("entries", updated);
+    setJournal("");
+  }
 
-    // simpan teks mentah ke localStorage (belum analisis)
-    const added = saveEntry({ text });
-    // update UI (masukkan paling atas)
-    setItems((prev) => [added, ...prev]);
-    setEntry("");
-  };
+  const defaultLight = [
+    "Stretch for 2 minutes",
+    "Drink a glass of water",
+    "Look away from the screen for 10 seconds",
+  ];
+
+  useEffect(() => {
+    if (lightTasks.length === 0) setLightTasks(defaultLight);
+  }, []);
 
   return (
-    <div className="h-full flex flex-col bg-gray-50">
-      {/* Header sederhana */}
-      <div className="sticky top-0 z-10 bg-white border-b border-neutral-200">
-        <div className="max-w-3xl mx-auto px-4 py-3">
-          <h1 className="text-base font-semibold text-neutral-900">Catatan</h1>
-          <p className="text-xs text-neutral-500">
-            Tulis bebas; catatanmu tersimpan di perangkat ini.
-          </p>
-        </div>
-      </div>
+    <main className={container}>
+      {/* 🪞 Quote of the Day */}
+      <section>
+        <Quote />
+      </section>
 
-      {/* Daftar catatan */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-4 py-4 space-y-4">
-          {items.length === 0 ? (
-            <div className="text-center text-neutral-400 py-16">
-              Belum ada catatan. Mulai dari hal kecil pun boleh 🌿
-            </div>
-          ) : (
-            items.map((it) => (
-              <article
-                key={it.id}
-                className="bg-white border border-neutral-200 rounded-xl shadow-sm p-4"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-neutral-500">
-                    {format(
-                      new Date(Number(it.createdAt)),
-                      "EEEE, d MMM yyyy HH:mm",
-                      { locale: id }
-                    )}
-                  </span>
-                </div>
-                <p className="text-sm text-neutral-800 whitespace-pre-line">
-                  {it.text}
-                </p>
-              </article>
-            ))
-          )}
-        </div>
-      </main>
-
-      {/* Composer */}
-      <div className="border-t border-neutral-200 bg-white">
-        <form onSubmit={onSubmit} className="max-w-3xl mx-auto px-4 py-3">
-          <div className="rounded-xl border border-neutral-200 bg-neutral-50 focus-within:bg-white">
-            <textarea
-              ref={textareaRef}
-              rows={1}
-              value={entry}
-              onChange={(e) => setEntry(e.target.value)}
-              placeholder="Bagaimana harimu?"
-              className="w-full bg-transparent resize-none border-0 focus:ring-0 text-sm p-3"
-            />
-            <div className="flex items-center justify-end border-t border-neutral-100 p-2">
+      {/* 🌿 Today's Priorities */}
+      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft">
+        <h2 className="text-lg font-semibold mb-3">Today's Priorities</h2>
+        <ul className="space-y-2">
+          {priorities.map((p, i) => (
+            <li
+              key={i}
+              className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#EDE7E0]/50 text-sm"
+            >
+              <span>{p}</span>
               <button
-                type="submit"
-                disabled={!entry.trim()}
-                className={`px-3 py-1.5 text-sm rounded-lg ${
-                  entry.trim()
-                    ? "bg-neutral-900 text-white"
-                    : "bg-neutral-200 text-neutral-500 cursor-not-allowed"
-                }`}
+                onClick={() => removePriority(i)}
+                className="text-[#7E7A74] hover:text-[#F2B8A2] transition-colors duration-200"
               >
-                Simpan
+                ✕
               </button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
+            </li>
+          ))}
+          {priorities.length === 0 && (
+            <li className="text-[#7E7A74] italic text-sm">
+              No focus yet. Add one below.
+            </li>
+          )}
+        </ul>
+        <button
+          onClick={addPriority}
+          className="mt-3 text-sm text-[#7E7A74] hover:text-[#2E2A26] transition-colors duration-200"
+        >
+          + Add priority
+        </button>
+      </section>
+
+      {/* ☁️ Light Tasks for Now */}
+      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft">
+        <h2 className="text-lg font-semibold mb-3">3 Light Tasks for Now</h2>
+        <ul className="space-y-2">
+          {lightTasks.map((t, i) => (
+            <li
+              key={i}
+              className="px-3 py-2 rounded-xl bg-[#E8E1DA]/40 text-[#2E2A26] text-sm hover:bg-[#EDE7E0]/70 transition-all duration-200"
+            >
+              {t}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* ✍️ Journal Input */}
+      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft">
+        <h2 className="text-lg font-semibold mb-3">How are you feeling today?</h2>
+        <textarea
+          value={journal}
+          onChange={(e) => setJournal(e.target.value)}
+          placeholder="Write freely... (your words stay private)"
+          className="w-full h-32 rounded-xl border border-[#E8E1DA] bg-white/60 px-3 py-2 text-sm focus:outline-none focus:border-[#CBB9A8] transition-all duration-300"
+        />
+        <div className="flex justify-end mt-3">
+          <button
+            onClick={handleSaveEntry}
+            disabled={!journal.trim()}
+            className={`px-4 py-2 rounded-xl text-sm text-[#FAF7F2] transition-all duration-300 ${
+              journal.trim()
+                ? "bg-[#9EC3B0]/90 hover:bg-[#9EC3B0]"
+                : "bg-[#CBB9A8]/40 cursor-not-allowed"
+            }`}
+          >
+            Save entry
+          </button>
+        </div>
+      </section>
+
+      {/* 📜 Recent Entries */}
+      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft">
+        <h2 className="text-lg font-semibold mb-3">Recent Reflections</h2>
+        {entries.length === 0 ? (
+          <p className="text-[#7E7A74] italic text-sm">
+            You haven’t written anything yet.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {entries.slice(0, 3).map((e) => (
+              <li
+                key={e.id}
+                className="p-3 rounded-xl bg-[#EDE7E0]/40 hover:bg-[#EDE7E0]/70 transition-all duration-300"
+              >
+                <p className="text-sm leading-relaxed">{e.text}</p>
+                <p className="text-xs text-[#7E7A74] mt-1">
+                  {new Date(e.created_at).toLocaleString("en-GB", {
+                    day: "2-digit",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </main>
   );
 }

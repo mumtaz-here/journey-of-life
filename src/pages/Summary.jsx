@@ -1,219 +1,152 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import {
-  ArrowLeft,
-  Search,
-  MoreVertical,
-  Calendar,
-  BarChart2,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
-import { format } from "date-fns";
-import id from "date-fns/locale/id";
+/**
+ * Journey of Life — Page: Summary
+ * -------------------------------
+ * Displays gentle insights based on journal entries:
+ * - Mood average
+ * - Frequent words
+ * - Reflection insight
+ */
+
+import React, { useEffect, useState } from "react";
+import { load } from "../utils/storage";
+import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from "recharts";
+
+const container =
+  "max-w-2xl mx-auto px-5 py-8 flex flex-col gap-8 text-[#2E2A26]";
 
 export default function Summary() {
-  const navigate = useNavigate();
-  const [showDetails, setShowDetails] = useState(false);
   const [entries, setEntries] = useState([]);
+  const [moodData, setMoodData] = useState([]);
+  const [keywords, setKeywords] = useState([]);
 
-  // ✿ ambil semua catatan dari localStorage yang punya analisis
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("journey-entries");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const filtered = parsed.filter((e) => e.analysis);
-        setEntries(filtered);
-      }
-    } catch (err) {
-      console.error("Failed to load entries:", err);
-    }
-  }, []);
+    const saved = load("entries") || [];
+    setEntries(saved);
 
-  // ✿ bikin ringkasan dari hasil analisis parser
-  const summarizeEntries = (entries) => {
-    if (!entries.length) return null;
+    // Extract data for chart
+    const moodMap = {};
+    const wordCount = {};
 
-    // total entri
-    const total = entries.length;
+    saved.forEach((e) => {
+      const a = e.analysis || {};
+      const mood = a.mood || "neutral";
+      moodMap[mood] = (moodMap[mood] || 0) + 1;
 
-    // hitung kategori emosi dari parser
-    const emotionCounts = {};
-    entries.forEach((e) => {
-      const emo = e.analysis?.category;
-      if (emo) {
-        emotionCounts[emo] = (emotionCounts[emo] || 0) + 1;
-      }
-    });
-
-    const dominantEmotion =
-      Object.keys(emotionCounts).length > 0
-        ? Object.entries(emotionCounts).sort((a, b) => b[1] - a[1])[0][0]
-        : "netral";
-
-    // tanggal terakhir
-    const lastDate = entries[0]?.createdAt
-      ? format(new Date(Number(entries[0].createdAt)), "d MMM yyyy", {
-          locale: id,
-        })
-      : "—";
-
-    // hitung jenis aktivitas dari analysis.note
-    const keywordCounts = {};
-    entries.forEach((e) => {
-      const note = e.analysis?.note?.toLowerCase() || "";
-      if (!note) return;
-      const words = note.split(/\s+/);
-      words.forEach((w) => {
-        if (["beli", "bayar", "tugas", "bantu", "rencana", "emosi"].includes(w)) {
-          keywordCounts[w] = (keywordCounts[w] || 0) + 1;
-        }
+      (a.keywords || []).forEach((w) => {
+        wordCount[w] = (wordCount[w] || 0) + 1;
       });
     });
 
-    const topKeywords = Object.keys(keywordCounts)
-      .sort((a, b) => keywordCounts[b] - keywordCounts[a])
-      .slice(0, 3);
+    const moodArr = Object.keys(moodMap).map((m) => ({
+      mood: m,
+      count: moodMap[m],
+    }));
 
-    return { total, dominantEmotion, lastDate, topKeywords };
-  };
+    const keyArr = Object.entries(wordCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([k, v]) => ({ word: k, count: v }));
 
-  const summary = summarizeEntries(entries);
+    setMoodData(moodArr);
+    setKeywords(keyArr);
+  }, []);
+
+  const mostCommonMood = moodData.reduce(
+    (a, b) => (a.count > b.count ? a : b),
+    { mood: "neutral", count: 0 }
+  );
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 rounded-full hover:bg-gray-100 text-gray-600"
-            aria-label="Back"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
+    <main className={container}>
+      {/* 🪞 Overview */}
+      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft animate-fadeIn">
+        <h2 className="text-xl font-semibold mb-2">Weekly Reflection</h2>
+        <p className="text-[#7E7A74] text-sm leading-relaxed">
+          A calm glance at your recent emotional patterns and key themes.
+        </p>
+      </section>
 
-          <div className="flex-1 text-center">
-            <h1 className="text-lg font-semibold text-gray-900">
-              Ringkasan Harian
-            </h1>
-            <p className="text-xs text-gray-500">
-              {format(new Date(), "EEEE, d MMMM yyyy", { locale: id })}
-            </p>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button className="p-2 rounded-full hover:bg-gray-100 text-gray-600">
-              <Search className="w-5 h-5" />
-            </button>
-            <button className="p-2 rounded-full hover:bg-gray-100 text-gray-600">
-              <MoreVertical className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="flex-1 overflow-y-auto p-4 max-w-3xl mx-auto w-full">
-        {!entries.length ? (
-          <p className="text-center text-gray-400 italic mt-10">
-            Belum ada catatan untuk diringkas 🌿
+      {/* 🌤️ Mood Summary Chart */}
+      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft">
+        <h3 className="text-lg font-semibold mb-3">Mood Landscape</h3>
+        {moodData.length === 0 ? (
+          <p className="text-[#7E7A74] italic text-sm">
+            Not enough entries yet for a summary.
           </p>
         ) : (
-          <>
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div className="bg-white rounded-xl shadow-sm p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-500">
-                    Total Entri
-                  </h3>
-                  <Calendar className="w-5 h-5 text-[#A68B73]" />
-                </div>
-                <p className="text-2xl font-bold text-gray-900">
-                  {summary.total}
-                </p>
-                <p className="text-sm text-gray-600 mt-1">
-                  terakhir: {summary.lastDate}
-                </p>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-500">
-                    Emosi Dominan
-                  </h3>
-                  <BarChart2 className="w-5 h-5 text-[#A68B73]" />
-                </div>
-                <p className="text-2xl font-bold capitalize text-gray-900">
-                  {summary.dominantEmotion}
-                </p>
-              </div>
-            </div>
-
-            {/* Keyword Section */}
-            <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-semibold text-gray-900">
-                  Pola Aktivitas
-                </h2>
-                <button
-                  onClick={() => setShowDetails(!showDetails)}
-                  className="flex items-center text-sm text-[#A68B73] hover:underline"
-                >
-                  Detail
-                  {showDetails ? (
-                    <ChevronUp className="w-4 h-4 ml-1" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 ml-1" />
-                  )}
-                </button>
-              </div>
-
-              <div className="mt-3">
-                {summary.topKeywords.length === 0 ? (
-                  <p className="text-gray-500 text-sm italic">
-                    Belum ada pola yang terdeteksi.
-                  </p>
-                ) : (
-                  <ul className="space-y-2">
-                    {summary.topKeywords.map((k) => (
-                      <li
-                        key={k}
-                        className="px-3 py-2 bg-gray-100 rounded-lg text-sm text-gray-700"
-                      >
-                        • Aktivitas sering muncul: <b>{k}</b>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              {showDetails && (
-                <div className="mt-4 border-t border-gray-100 pt-3">
-                  {entries.slice(0, 3).map((e) => (
-                    <div
-                      key={e.id}
-                      className="mb-2 text-sm text-gray-600 border-b border-gray-50 pb-2"
-                    >
-                      <span className="text-gray-500 text-xs">
-                        {e.createdAt
-                          ? format(
-                              new Date(Number(e.createdAt)),
-                              "d MMM yyyy, HH:mm",
-                              { locale: id }
-                            )
-                          : "—"}
-                      </span>
-                      <p className="mt-1">{e.analysis?.note}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </>
+          <div className="w-full h-52">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={moodData}>
+                <XAxis
+                  dataKey="mood"
+                  stroke="#7E7A74"
+                  fontSize={12}
+                  tickMargin={8}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#FAF7F2",
+                    border: "1px solid #E8E1DA",
+                    borderRadius: "10px",
+                    fontSize: "12px",
+                    color: "#2E2A26",
+                  }}
+                />
+                <Bar
+                  dataKey="count"
+                  fill="#9EC3B0"
+                  radius={[10, 10, 0, 0]}
+                  animationDuration={600}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         )}
-      </main>
-    </div>
+      </section>
+
+      {/* 🪶 Keyword Summary */}
+      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft">
+        <h3 className="text-lg font-semibold mb-3">Frequent Words</h3>
+        {keywords.length === 0 ? (
+          <p className="text-[#7E7A74] italic text-sm">
+            Words will appear as you keep writing.
+          </p>
+        ) : (
+          <ul className="flex flex-wrap gap-2">
+            {keywords.map((k) => (
+              <li
+                key={k.word}
+                className="px-3 py-1 rounded-full text-sm bg-[#E8E1DA]/70 text-[#2E2A26] hover:bg-[#E8E1DA] transition-all duration-300"
+              >
+                {k.word}
+                <span className="ml-1 text-[#7E7A74] text-xs">×{k.count}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* 🌷 Insight */}
+      <section className="p-5 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft">
+        <h3 className="text-lg font-semibold mb-3">Gentle Insight</h3>
+        {entries.length === 0 ? (
+          <p className="text-[#7E7A74] italic text-sm">
+            Write a few reflections to reveal your patterns.
+          </p>
+        ) : (
+          <p className="text-sm leading-relaxed text-[#2E2A26]/90">
+            You’ve mostly felt{" "}
+            <span className="font-medium text-[#9EC3B0]">
+              {mostCommonMood.mood}
+            </span>
+            {" "}recently — notice how your words often return to{" "}
+            <span className="font-medium text-[#CBB9A8]">
+              {keywords[0]?.word || "something simple"}
+            </span>
+            . Maybe it’s quietly asking for your attention.
+          </p>
+        )}
+      </section>
+    </main>
   );
 }

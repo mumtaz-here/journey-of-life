@@ -1,216 +1,156 @@
-import { useState, useEffect } from "react";
-import { format } from "date-fns";
-import id from "date-fns/locale/id";
-import Icon from "../components/icon.jsx";
+/**
+ * Journey of Life — Page: Highlights
+ * ----------------------------------
+ * A cozy archive of meaningful events or moments.
+ * Each highlight has text, date, and gentle status (done / ongoing / wish).
+ */
 
-export default function Highlights({ onBack }) {
-  const [highlights, setHighlights] = useState([]);
-  const [editingId, setEditingId] = useState(null);
-  const [draft, setDraft] = useState({ status: "", note: "" });
+import React, { useEffect, useState } from "react";
+import { load, save } from "../utils/storage";
 
-  // list saran ringan (bisa dari sistem / AI)
-  const [suggestions, setSuggestions] = useState([]);
+const container =
+  "max-w-2xl mx-auto px-5 py-8 flex flex-col gap-8 text-[#2E2A26]";
 
-  const STATUS_STYLE = {
-    pending: "bg-white border-neutral-200",
-    done: "bg-green-50 border-green-100",
-    skipped: "bg-amber-50 border-amber-100",
-  };
+export default function Highlights() {
+  const [highlights, setHighlights] = useState(() => load("highlights") || []);
 
   useEffect(() => {
-    const saved = localStorage.getItem("journey-highlights");
-    if (saved) setHighlights(JSON.parse(saved));
+    save("highlights", highlights);
+  }, [highlights]);
 
-    // contoh saran otomatis sederhana
-    setSuggestions([
-      {
-        id: "sg1",
-        text: "Roti yang dibeli kemarin: sudah dikonsumsi?",
-        related: "pembelian makanan",
-      },
-      {
-        id: "sg2",
-        text: "Panci listrik sudah 2 bulan digunakan, pertimbangkan untuk dibersihkan.",
-        related: "perawatan barang",
-      },
-    ]);
-  }, []);
+  function addHighlight() {
+    const text = prompt("Write a moment you’d like to remember:");
+    if (!text || !text.trim()) return;
 
-  const startEdit = (item) => {
-    setEditingId(item.id);
-    setDraft({ status: item.status || "pending", note: item.note || "" });
-  };
+    const newHighlight = {
+      id: Date.now(),
+      text: text.trim(),
+      status: "ongoing",
+      date: new Date().toISOString(),
+    };
+    const updated = [newHighlight, ...highlights];
+    setHighlights(updated);
+    save("highlights", updated);
+  }
 
-  const saveEdit = () => {
+  function toggleStatus(id) {
     const updated = highlights.map((h) =>
-      h.id === editingId ? { ...h, ...draft } : h
+      h.id === id
+        ? {
+            ...h,
+            status:
+              h.status === "ongoing"
+                ? "done"
+                : h.status === "done"
+                ? "wish"
+                : "ongoing",
+          }
+        : h
     );
     setHighlights(updated);
-    localStorage.setItem("journey-highlights", JSON.stringify(updated));
-    setEditingId(null);
+    save("highlights", updated);
+  }
+
+  function removeHighlight(id) {
+    if (confirm("Remove this highlight?")) {
+      const updated = highlights.filter((h) => h.id !== id);
+      setHighlights(updated);
+      save("highlights", updated);
+    }
+  }
+
+  const statusColors = {
+    done: "bg-[#9EC3B0]/40 text-[#2E2A26]",
+    ongoing: "bg-[#CBB9A8]/30 text-[#2E2A26]",
+    wish: "bg-[#F2B8A2]/40 text-[#2E2A26]",
   };
 
-  // tambahkan saran ke highlights
-  const addSuggestionToHighlights = (sug) => {
-    const newItem = {
-      id: Date.now(),
-      text: sug.text,
-      status: "pending",
-      note: "",
-      createdAt: Date.now(),
-    };
-    const updated = [newItem, ...highlights];
-    setHighlights(updated);
-    localStorage.setItem("journey-highlights", JSON.stringify(updated));
+  const statusLabel = {
+    done: "✨ done",
+    ongoing: "🌿 ongoing",
+    wish: "💭 wish",
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-gray-50">
-      {/* Header */}
-      <div className="p-3 flex items-center gap-2 bg-white shadow-sm sticky top-0 z-10">
-        <button
-          onClick={onBack}
-          className="rounded-full bg-white p-2 shadow hover:bg-gray-100"
-        >
-          <Icon name="menu" className="w-5 h-5 text-neutral-800" />
-        </button>
+    <main className={container}>
+      {/* 🪞 Header */}
+      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft animate-fadeIn">
+        <h2 className="text-xl font-semibold mb-2">Highlights</h2>
+        <p className="text-[#7E7A74] text-sm leading-relaxed">
+          Keep small moments that make you feel grateful or alive.
+        </p>
+      </section>
 
-        <div className="flex-1 flex items-center justify-center">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 shadow">
-            <Icon name="pin" className="w-4 h-4 text-rose-700" />
-            <span className="text-sm text-neutral-900 font-medium">
-              Highlights
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button className="rounded-full bg-white p-2 shadow hover:bg-gray-100">
-            <Icon name="search" className="w-5 h-5 text-neutral-800" />
-          </button>
-          <button className="rounded-full bg-white p-2 shadow hover:bg-gray-100">
-            <Icon name="more" className="w-5 h-5 text-neutral-800" />
+      {/* 🌸 Highlights List */}
+      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft">
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-lg font-semibold">Moments Archive</h3>
+          <button
+            onClick={addHighlight}
+            className="text-sm text-[#7E7A74] hover:text-[#2E2A26] transition-all duration-200"
+          >
+            + Add
           </button>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
-        {/* Bagian saran ringan */}
-        {suggestions.length > 0 && (
-          <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-4">
-            <div className="flex items-center mb-3">
-              <Icon name="lightbulb" className="w-4 h-4 text-yellow-600 mr-2" />
-              <h2 className="text-sm font-medium text-neutral-800">
-                Saran yang perlu diperhatikan
-              </h2>
-            </div>
-
-            <ul className="space-y-2">
-              {suggestions.map((sug) => (
-                <li
-                  key={sug.id}
-                  className="flex items-start justify-between border-b border-neutral-100 pb-2 last:border-none"
-                >
-                  <p className="text-sm text-neutral-700">{sug.text}</p>
-                  <button
-                    onClick={() => addSuggestionToHighlights(sug)}
-                    className="text-xs text-neutral-500 hover:text-neutral-800 transition"
-                  >
-                    + Tambahkan
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Daftar highlights */}
-        {!highlights.length ? (
-          <div className="text-center text-gray-400 mt-10">
-            Belum ada sorotan dari catatan 🌿
-          </div>
+        {highlights.length === 0 ? (
+          <p className="text-[#7E7A74] italic text-sm">
+            Nothing added yet. Every little good thing counts.
+          </p>
         ) : (
-          <div className="space-y-4">
-            {highlights.map((it) => (
-              <div
-                key={it.id}
-                className={`relative border rounded-2xl p-3 shadow-sm transition-all ${STATUS_STYLE[it.status]}`}
-                onClick={() => startEdit(it)}
+          <ul className="space-y-3">
+            {highlights.map((h) => (
+              <li
+                key={h.id}
+                className="p-3 rounded-xl bg-[#EDE7E0]/40 hover:bg-[#EDE7E0]/70 transition-all duration-300"
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm text-gray-600">
-                    {it.createdAt
-                      ? format(
-                          new Date(Number(it.createdAt)),
-                          "EEEE, d MMM yyyy HH:mm",
-                          { locale: id }
-                        )
-                      : "—"}
-                  </span>
-                  <Icon name="star" className="w-4 h-4 text-rose-600" />
-                </div>
-
-                <p className="text-gray-800 text-sm whitespace-pre-line">
-                  {it.text}
-                </p>
-
-                {editingId === it.id && (
-                  <div className="mt-3 border-t pt-3 animate-fadein">
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      {[
-                        { key: "pending", label: "Belum" },
-                        { key: "done", label: "Selesai" },
-                        { key: "skipped", label: "Dilepas" },
-                      ].map((opt) => (
-                        <button
-                          key={opt.key}
-                          type="button"
-                          onClick={() =>
-                            setDraft((d) => ({ ...d, status: opt.key }))
-                          }
-                          className={`px-2.5 py-1 rounded-full text-xs border transition ${
-                            draft.status === opt.key
-                              ? "bg-white shadow-sm border-neutral-300"
-                              : "bg-neutral-50 hover:bg-white"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    <textarea
-                      rows={2}
-                      value={draft.note}
-                      onChange={(e) =>
-                        setDraft((d) => ({ ...d, note: e.target.value }))
-                      }
-                      className="w-full text-sm rounded-lg border border-neutral-200 p-2 bg-white focus:outline-none focus:ring-1 focus:ring-neutral-300"
-                      placeholder="catatan kecil (opsional)…"
-                    />
-
-                    <div className="mt-2 flex justify-end gap-2">
-                      <button
-                        className="text-xs text-neutral-600 hover:underline"
-                        onClick={() => setEditingId(null)}
-                      >
-                        Batal
-                      </button>
-                      <button
-                        className="text-xs bg-neutral-900 text-white px-3 py-1.5 rounded-lg"
-                        onClick={saveEdit}
-                      >
-                        Simpan
-                      </button>
-                    </div>
+                <div className="flex justify-between items-start">
+                  <p className="text-sm leading-relaxed w-[80%]">{h.text}</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => toggleStatus(h.id)}
+                      className={`text-xs px-3 py-1 rounded-full ${statusColors[h.status]} transition-all duration-200`}
+                    >
+                      {statusLabel[h.status]}
+                    </button>
+                    <button
+                      onClick={() => removeHighlight(h.id)}
+                      className="text-[#7E7A74] hover:text-[#F2B8A2] text-sm transition-colors duration-200"
+                    >
+                      ✕
+                    </button>
                   </div>
-                )}
-              </div>
+                </div>
+                <p className="text-xs text-[#7E7A74] mt-1">
+                  {new Date(h.date).toLocaleString("en-GB", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-      </div>
-    </div>
+      </section>
+
+      {/* 🌿 Gentle Insight */}
+      {highlights.length > 0 && (
+        <section className="p-5 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft">
+          <h3 className="text-lg font-semibold mb-3">Gentle Reflection</h3>
+          <p className="text-sm leading-relaxed text-[#2E2A26]/90">
+            You’ve recorded{" "}
+            <span className="font-medium text-[#9EC3B0]">
+              {highlights.length}
+            </span>{" "}
+            meaningful {highlights.length === 1 ? "moment" : "moments"} so far.
+            Keep noticing what brings you quiet joy — sometimes that’s the real
+            progress.
+          </p>
+        </section>
+      )}
+    </main>
   );
 }

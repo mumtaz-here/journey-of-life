@@ -1,178 +1,135 @@
-import { useEffect, useState } from "react";
-import Icon from "../components/Icon.jsx";
-import { format } from "date-fns";
-import id from "date-fns/locale/id";
+/**
+ * Journey of Life — Page: Progress
+ * --------------------------------
+ * Displays your weekly journaling activity and gentle reflection.
+ * Combines small data with calm tone.
+ */
 
-export default function Progress({ onBack }) {
+import React, { useEffect, useState } from "react";
+import { load } from "../utils/storage";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
+
+const container =
+  "max-w-2xl mx-auto px-5 py-8 flex flex-col gap-8 text-[#2E2A26]";
+
+export default function Progress() {
   const [entries, setEntries] = useState([]);
-  const [weeklyStats, setWeeklyStats] = useState({
-    total: 0,
-    topHour: null,
-    mood: "netral",
-    days: [],
-  });
+  const [chartData, setChartData] = useState([]);
+  const [reflection, setReflection] = useState("");
 
-  // Ambil data dari localStorage
   useEffect(() => {
-    const saved = localStorage.getItem("journeyEntries");
-    if (saved) {
-      const all = JSON.parse(saved);
-      setEntries(all);
-      computeWeekly(all);
+    const saved = load("entries") || [];
+    setEntries(saved);
+
+    // group by week
+    const byWeek = {};
+    saved.forEach((e) => {
+      const date = new Date(e.created_at);
+      const week = getWeekKey(date);
+      byWeek[week] = (byWeek[week] || 0) + 1;
+    });
+
+    const data = Object.entries(byWeek)
+      .map(([w, count]) => ({ week: w, entries: count }))
+      .sort((a, b) => (a.week > b.week ? 1 : -1));
+
+    setChartData(data);
+
+    // gentle reflection logic
+    if (saved.length === 0) {
+      setReflection("You haven’t started writing yet — it’s never too late to begin.");
+    } else if (saved.length < 4) {
+      setReflection(
+        "You’re slowly building a rhythm. Each entry plants a small seed of clarity."
+      );
+    } else if (saved.length < 10) {
+      setReflection(
+        "You’ve written consistently — it’s not about quantity, but awareness in each moment."
+      );
+    } else {
+      setReflection(
+        "Your journaling practice is becoming part of your flow — a quiet form of growth."
+      );
     }
   }, []);
 
-  // Hitung pola mingguan
-  const computeWeekly = (data) => {
-    if (!data || !data.length) return;
-
-    // ambil 7 hari terakhir
-    const now = new Date();
-    const sevenDaysAgo = new Date(now);
-    sevenDaysAgo.setDate(now.getDate() - 6);
-
-    const filtered = data.filter((e) => {
-      const entryDate = new Date(e.id);
-      return entryDate >= sevenDaysAgo && entryDate <= now;
-    });
-
-    // total entri
-    const total = filtered.length;
-
-    // hitung jam menulis
-    const hourCounts = {};
-    filtered.forEach((e) => {
-      const d = new Date(e.id);
-      const h = d.getHours();
-      hourCounts[h] = (hourCounts[h] || 0) + 1;
-    });
-    const topHour =
-      Object.keys(hourCounts).length > 0
-        ? Object.entries(hourCounts).sort((a, b) => b[1] - a[1])[0][0]
-        : null;
-
-    // deteksi mood sederhana
-    const moodWords = {
-      bahagia: ["senang", "gembira", "yeey", "lega", "semangat"],
-      sedih: ["sedih", "capek", "lelah", "kecewa"],
-      marah: ["marah", "bete", "kesal"],
-      tenang: ["tenang", "santai", "damai"],
-      cemas: ["cemas", "takut", "gelisah"],
-    };
-    const moodCount = {};
-    filtered.forEach((e) => {
-      const txt = e.text.toLowerCase();
-      for (const mood in moodWords) {
-        if (moodWords[mood].some((word) => txt.includes(word))) {
-          moodCount[mood] = (moodCount[mood] || 0) + 1;
-        }
-      }
-    });
-    const mood =
-      Object.keys(moodCount).length > 0
-        ? Object.entries(moodCount).sort((a, b) => b[1] - a[1])[0][0]
-        : "netral";
-
-    // kelompokkan per hari
-    const dayMap = {};
-    filtered.forEach((e) => {
-      const d = new Date(e.id);
-      const key = format(d, "EEEE", { locale: id });
-      dayMap[key] = (dayMap[key] || 0) + 1;
-    });
-
-    const days = Object.keys(dayMap).map((day) => ({
-      name: day,
-      count: dayMap[day],
-    }));
-
-    setWeeklyStats({ total, topHour, mood, days });
-  };
+  function getWeekKey(date) {
+    const year = date.getFullYear();
+    const week = Math.ceil(
+      ((date - new Date(year, 0, 1)) / 86400000 + new Date(year, 0, 1).getDay() + 1) / 7
+    );
+    return `${year}-W${week}`;
+  }
 
   return (
-    <div className="w-full h-full flex flex-col bg-gray-50">
-      {/* Header */}
-      <div className="p-3 flex items-center gap-2 bg-white shadow-sm sticky top-0 z-10">
-        <button
-          onClick={onBack}
-          className="rounded-full bg-white p-2 shadow hover:bg-gray-100"
-        >
-          <Icon name="menu" className="w-5 h-5 text-neutral-800" />
-        </button>
+    <main className={container}>
+      {/* 🪞 Overview */}
+      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft animate-fadeIn">
+        <h2 className="text-xl font-semibold mb-2">Progress Overview</h2>
+        <p className="text-[#7E7A74] text-sm leading-relaxed">
+          A calm look at how your reflections have been flowing over time.
+        </p>
+      </section>
 
-        <div className="flex-1 flex items-center justify-center">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 shadow">
-            <Icon name="chart" className="w-4 h-4 text-[#A68B73]" />
-            <span className="text-sm text-neutral-900 font-medium">
-              Progress Mingguan
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button className="rounded-full bg-white p-2 shadow hover:bg-gray-100">
-            <Icon name="search" className="w-5 h-5 text-neutral-800" />
-          </button>
-          <button className="rounded-full bg-white p-2 shadow hover:bg-gray-100">
-            <Icon name="more" className="w-5 h-5 text-neutral-800" />
-          </button>
-        </div>
-      </div>
-
-      {/* Konten utama */}
-      <div className="flex-1 overflow-y-auto px-5 py-4">
-        {!entries.length ? (
-          <div className="text-center text-gray-400 mt-10">
-            Belum ada data untuk ditampilkan 🌿
-          </div>
+      {/* 📈 Weekly Entries Chart */}
+      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft">
+        <h3 className="text-lg font-semibold mb-3">Weekly Entries</h3>
+        {chartData.length === 0 ? (
+          <p className="text-[#7E7A74] italic text-sm">
+            No activity yet. Start writing to see your rhythm grow.
+          </p>
         ) : (
-          <>
-            {/* Kartu ringkasan */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-              <div className="bg-white rounded-xl shadow-sm p-4">
-                <p className="text-xs text-gray-500 mb-1">Total Entri Minggu Ini</p>
-                <p className="text-2xl font-bold text-gray-900">{weeklyStats.total}</p>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm p-4">
-                <p className="text-xs text-gray-500 mb-1">Jam Aktif Menulis</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {weeklyStats.topHour
-                    ? `${weeklyStats.topHour}:00`
-                    : "Belum terdeteksi"}
-                </p>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm p-4">
-                <p className="text-xs text-gray-500 mb-1">Mood Dominan</p>
-                <p className="capitalize text-2xl font-bold text-gray-900">
-                  {weeklyStats.mood}
-                </p>
-              </div>
-            </div>
-
-            {/* Grafik batang sederhana */}
-            <div className="bg-white rounded-xl shadow-sm p-4">
-              <p className="text-sm font-medium text-gray-900 mb-3">
-                Aktivitas 7 Hari Terakhir
-              </p>
-              <div className="flex items-end justify-between h-40">
-                {weeklyStats.days.map((d) => (
-                  <div key={d.name} className="flex flex-col items-center flex-1">
-                    <div
-                      className="w-6 bg-[#D8BFAA] rounded-t-md transition-all duration-300"
-                      style={{ height: `${d.count * 30}px` }}
-                    ></div>
-                    <p className="text-xs mt-2 text-gray-600">
-                      {d.name.slice(0, 3)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
+          <div className="w-full h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(200,200,200,0.2)"
+                />
+                <XAxis
+                  dataKey="week"
+                  stroke="#7E7A74"
+                  fontSize={12}
+                  tickMargin={8}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#FAF7F2",
+                    border: "1px solid #E8E1DA",
+                    borderRadius: "10px",
+                    fontSize: "12px",
+                    color: "#2E2A26",
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="entries"
+                  stroke="#9EC3B0"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: "#CBB9A8" }}
+                  activeDot={{ r: 6 }}
+                  animationDuration={600}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         )}
-      </div>
-    </div>
+      </section>
+
+      {/* 🌿 Reflection Note */}
+      <section className="p-5 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft">
+        <h3 className="text-lg font-semibold mb-3">Reflection Note</h3>
+        <p className="text-sm leading-relaxed text-[#2E2A26]/90">
+          {reflection}
+        </p>
+      </section>
+    </main>
   );
 }
