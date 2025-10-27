@@ -1,7 +1,5 @@
 /**
- * Journey of Life — Route: Entries
- * --------------------------------
- * /api/entries → CRUD for journaling entries
+ * Journey of Life — Route: Entries (with auto Highlights + Priorities)
  */
 
 import express from "express";
@@ -11,43 +9,69 @@ import {
   deleteEntry,
   initEntriesTable,
 } from "../db/models/entries.js";
+import { addHighlight, initHighlightsTable } from "../db/models/highlights.js";
+import {
+  initPrioritiesTable,
+  countPrioritiesByDate,
+  addPriority as addPrio,
+} from "../db/models/priorities.js";
+import { parseEntry } from "../utils/parser.js";
 
 const router = express.Router();
 
-// 🪶 Initialize table if not exists
 await initEntriesTable();
+await initHighlightsTable();
+await initPrioritiesTable();
 
-// 🌿 GET all entries
-router.get("/", async (req, res) => {
+// GET all
+router.get("/", async (_req, res) => {
   try {
-    const entries = await getAllEntries();
-    res.json(entries);
+    const rows = await getAllEntries();
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// 🌸 POST new entry
+// POST new entry → parse → save → create highlights + (up to) 3 priorities (today)
 router.post("/", async (req, res) => {
   try {
-    const { text, analysis } = req.body;
-    if (!text) return res.status(400).json({ error: "Text is required." });
-    const newEntry = await addEntry(text, analysis);
-    res.json(newEntry);
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ error: "Text required" });
+
+    const analysis = parseEntry(text);
+    const entry = await addEntry(text, analysis);
+
+    // highlights from plans
+    if (analysis?.plans?.length) {
+      for (const p of analysis.plans) {
+        await addHighlight(p.title, p.planned_date || null, entry.id);
+      }
+    }
+
+    // priorities from parser (today), cap at 3 per date
+    if (analysis?.priorities?.length) {
+      const today = analysis.priorities[0].date; // they are all today by design
+      let count = await countPrioritiesByDate(today);
+      for (const p of analysis.priorities) {
+        if (count >= 3) break;
+        await addPrio({ text: p.title, date: today, source_entry_id: entry.id });
+        count += 1;
+      }
+    }
+
+    res.json(entry);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// 🍂 DELETE entry
+// DELETE
 router.delete("/:id", async (req, res) => {
   try {
-    const { id } = req.params;
-    await deleteEntry(id);
-    res.json({ message: "Entry deleted." });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+    await deleteEntry(req.params.id);
+  } catch (_) {}
+  res.json({ message: "Deleted" });
 });
 
 export default router;

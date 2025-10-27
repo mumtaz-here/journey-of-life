@@ -1,78 +1,28 @@
-@import "tailwindcss";
-
-/* ----------------------------------------
-   Journey of Life — Global Style
-   Playful Serenity Edition (v4 syntax)
-   ---------------------------------------- */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Inter:wght@300;400;500;600&display=swap');
 
 :root {
-  --bg-base: #FAF7F2;
-  --text-main: #2E2A26;
-  --text-soft: #7E7A74;
-  --accent: #CBB9A8;
-  --accent-green: #9EC3B0;
-  --accent-coral: #F2B8A2;
-  --border-soft: #E8E1DA;
+  --font-heading: 'Cormorant Garamond', serif;
+  --font-body: 'Inter', sans-serif;
 }
 
-/* --- Base feel --- */
-html,
 body {
-  @apply bg-[var(--bg-base)] text-[var(--text-main)] antialiased;
-  font-family: "Inter", "DM Sans", system-ui, sans-serif;
-  line-height: 1.7;
-  letter-spacing: 0.01em;
-  scroll-behavior: smooth;
+  background-color: #FAF7F2;
+  font-family: var(--font-body);
+  color: #2E2A26;
 }
 
-/* --- Headings --- */
-h1, h2, h3, h4, h5, h6 {
-  font-family: "Playfair Display", "Cormorant Garamond", serif;
-  letter-spacing: 0.02em;
+.rounded-soft {
+  border-radius: 18px;
 }
 
-/* --- Animations & Motion --- */
-@theme {
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(6px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-}
-
-.animate-fadein {
-  animation: fadeIn 0.6s ease-out both;
-}
-
-/* --- Form controls --- */
-input, textarea, select, button {
-  transition: all 0.25s ease-out;
-  outline: none;
-}
-
-button:focus-visible,
-input:focus-visible {
-  @apply ring-2 ring-[var(--accent)] ring-offset-2;
-}
-
-/* --- Scrollbar --- */
-::-webkit-scrollbar {
-  width: 8px;
-}
-::-webkit-scrollbar-thumb {
-  background-color: rgba(150, 150, 150, 0.25);
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(150, 150, 150, 0.35);
-}
-
-/* --- Card shadow --- */
 .shadow-soft {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0px 2px 6px rgba(0,0,0,0.06);
 }
 
-/* --- Text selection --- */
-::selection {
-  background-color: var(--accent-green);
-  color: white;
+.heading {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 1.15rem;
+  letter-spacing: -0.4px;
+  color: #2E2A26;
 }

@@ -1,78 +1,89 @@
 /**
- * Journey of Life — Page: My Story
- * --------------------------------
- * Generates a gentle weekly narrative from recent reflections.
- * Feels like reading your own story softly written on paper.
+ * Journey of Life — My Story (API connected, 3rd-person weekly narrative)
+ * -----------------------------------------------------------------------
+ * - Lists saved weekly stories (latest first)
+ * - One-click "Generate this week" → calls /api/reflections/generate
+ * - English-only copy
  */
 
 import React, { useEffect, useState } from "react";
-import { load } from "../utils/storage";
 
+const API = "http://localhost:5000/api";
 const container =
   "max-w-2xl mx-auto px-5 py-8 flex flex-col gap-8 text-[#2E2A26]";
 
 export default function MyStory() {
-  const [story, setStory] = useState("");
-  const [entries, setEntries] = useState([]);
+  const [stories, setStories] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const saved = load("entries") || [];
-    setEntries(saved);
-    generateStory(saved);
-  }, []);
+  useEffect(() => { fetchStories(); }, []);
 
-  function generateStory(list) {
-    if (list.length === 0) {
-      setStory("There are no reflections yet — your story is waiting to be written.");
-      return;
+  async function fetchStories() {
+    const res = await fetch(`${API}/reflections`);
+    const data = await res.json();
+    setStories(data); // already ordered desc by created_at
+  }
+
+  async function generateThisWeek() {
+    try {
+      setLoading(true);
+      await fetch(`${API}/reflections/generate`, { method: "POST" });
+      await fetchStories();
+    } finally {
+      setLoading(false);
     }
-
-    const allText = list.slice(0, 7).map((e) => e.text).join(" ");
-    const total = allText.split(" ").length;
-    const moodCount = list.reduce((acc, e) => {
-      const m = e.analysis?.mood || "neutral";
-      acc[m] = (acc[m] || 0) + 1;
-      return acc;
-    }, {});
-
-    const dominant = Object.entries(moodCount).sort((a, b) => b[1] - a[1])[0][0];
-
-    const reflections = [
-      "You’ve been walking through quiet changes — noticing, adjusting, breathing.",
-      "There’s a sense of steadiness forming beneath everything you write.",
-      "Some days felt heavier, but you still showed up — and that’s a story in itself.",
-      "You’ve spoken with warmth, even when things were uncertain.",
-      "Small realizations kept appearing between your words.",
-    ];
-
-    const base = reflections[Math.floor(Math.random() * reflections.length)];
-    const summary =
-      dominant === "calm"
-        ? "Overall, you’ve been grounded — letting peace find its way into your rhythm."
-        : dominant === "sad"
-        ? "It seems you’ve been carrying softness and longing lately. Be kind to that part of you."
-        : dominant === "happy"
-        ? "Joy has quietly threaded through your week — gentle, not loud."
-        : "Your reflections show subtle transitions — learning to stay with what is.";
-
-    setStory(`${base} ${summary} (${total} words this week.)`);
   }
 
   return (
     <main className={container}>
-      {/* 🪞 Header */}
+      {/* Header */}
       <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft animate-fadeIn">
         <h2 className="text-xl font-semibold mb-2">My Story</h2>
         <p className="text-[#7E7A74] text-sm leading-relaxed">
-          Your weekly narrative, softly written from your reflections.
+          A weekly third-person narrative drawn from your real entries, plans, and habits.
         </p>
       </section>
 
-      {/* 📜 Narrative */}
-      <section className="p-5 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft whitespace-pre-line animate-fadeIn">
-        <p className="text-sm leading-relaxed text-[#2E2A26]/90 font-[Cormorant_Garamond]">
-          {story}
+      {/* Actions */}
+      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-lg font-semibold">Weekly Narrative</h3>
+          <button
+            onClick={generateThisWeek}
+            disabled={loading}
+            className={`px-4 py-2 rounded-xl text-sm text-white ${
+              loading ? "bg-[#CBB9A8]/50 cursor-not-allowed" : "bg-[#9EC3B0] hover:bg-[#86b7a0]"
+            }`}
+          >
+            {loading ? "Generating…" : "Generate this week"}
+          </button>
+        </div>
+        <p className="text-xs text-[#7E7A74] mt-1">
+          Stories reflect exactly what you wrote — in English — without judgment.
         </p>
+      </section>
+
+      {/* Stories list */}
+      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft whitespace-pre-line">
+        {stories.length === 0 ? (
+          <p className="text-[#7E7A74] italic text-sm">No stories yet — write a little, then generate.</p>
+        ) : (
+          <ul className="space-y-4">
+            {stories.map((s) => (
+              <li key={s.id} className="p-4 rounded-xl bg-white border">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">Week {s.week}</h4>
+                  <span className="text-xs text-[#7E7A74]">
+                    {new Date(s.created_at).toLocaleString()}
+                  </span>
+                </div>
+                <p className="text-sm leading-relaxed text-[#2E2A26]/90 mt-2">
+                  {s.narrative}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </main>
   );

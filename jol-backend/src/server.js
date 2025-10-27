@@ -1,6 +1,5 @@
 /**
- * Journey of Life — Backend Server (Entries + Habits)
- * ---------------------------------------------------
+ * Journey of Life — Backend Server (with Priorities)
  */
 
 import express from "express";
@@ -10,6 +9,9 @@ import db from "./db/index.js";
 
 import entriesRoute from "./routes/entries.js";
 import habitsRoute from "./routes/habits.js";
+import highlightsRoute from "./routes/highlights.js";
+import reflectionsRoute from "./routes/reflections.js";
+import prioritiesRoute from "./routes/priorities.js";
 
 dotenv.config();
 const app = express();
@@ -17,19 +19,19 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 🩷 Root route
 app.get("/", (req, res) => {
-  res.json({ message: "Journey of Life API — calm and alive 🌱" });
+  res.json({ message: "Journey of Life API is breathing ✨" });
 });
 
-// 🪶 API routes
 app.use("/api/entries", entriesRoute);
 app.use("/api/habits", habitsRoute);
+app.use("/api/highlights", highlightsRoute);
+app.use("/api/reflections", reflectionsRoute);
+app.use("/api/priorities", prioritiesRoute);
 
-// 🚀 Start server
 const PORT = process.env.PORT || 5000;
+
 app.listen(PORT, async () => {
   await db.connect();
-  console.log("🌿 Connected to PostgreSQL (Journey of Life)");
-  console.log(`🌸 Server running on http://localhost:${PORT}`);
+  console.log("✅ DB & Server running → http://localhost:" + PORT);
 });

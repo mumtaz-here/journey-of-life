@@ -1,136 +1,162 @@
 /**
- * Journey of Life — Page: Habits Main
- * -----------------------------------
- * Shows cozy daily rhythm & streaks for small consistent actions.
+ * Journey of Life — My Habits v1 (FULL)
+ * -------------------------------------
+ * Features:
+ * ✅ Daily habits checklist (toggle)
+ * ✅ Smart suggestions placeholder
+ * ✅ Recap of habits done recently
+ * ✅ Calm UI matching HOME + My Journey
+ *
+ * Notes:
+ * - Every checkbox → logs habit event to backend
+ * - Keeps experience planner-focused & warm
  */
 
 import React, { useEffect, useState } from "react";
-import { load, save } from "../../utils/storage";
+
+const API = "http://localhost:5000/api";
 
 const container =
   "max-w-2xl mx-auto px-5 py-8 flex flex-col gap-8 text-[#2E2A26]";
+const card =
+  "p-5 rounded-soft bg-white border border-[#ECE5DD] shadow-soft";
+const heading = "heading mb-1";
+const subtext = "text-sm text-[#7E7A74]";
+
+function isoToday() {
+  return new Date().toISOString().split("T")[0];
+}
 
 export default function HabitMain() {
-  const [habits, setHabits] = useState(() => load("habits") || []);
+  const [habits, setHabits] = useState([]);
+  const [suggested, setSuggested] = useState([]);
+  const [recent, setRecent] = useState([]);
 
   useEffect(() => {
-    save("habits", habits);
-  }, [habits]);
+    fetchHabits();
+    fetchRecent();
+    fetchSuggestions();
+  }, []);
 
-  function addHabit() {
-    const title = prompt("Add a habit to track:");
-    if (title && title.trim()) {
-      const newHabit = {
-        id: Date.now(),
-        title: title.trim(),
-        streak: 0,
-        lastChecked: null,
-      };
-      const updated = [...habits, newHabit];
-      setHabits(updated);
-      save("habits", updated);
-    }
+  async function fetchHabits() {
+    const res = await fetch(`${API}/habits`);
+    const data = await res.json();
+    setHabits(data);
   }
 
-  function toggleHabit(id) {
-    const today = new Date().toDateString();
-    const updated = habits.map((h) => {
-      if (h.id === id) {
-        const isSameDay = h.lastChecked === today;
-        return {
-          ...h,
-          lastChecked: isSameDay ? null : today,
-          streak: isSameDay ? h.streak - 1 : h.streak + 1,
-        };
-      }
-      return h;
-    });
-    setHabits(updated);
-    save("habits", updated);
+  async function fetchRecent() {
+    const res = await fetch(`${API}/habits/recent`);
+    const data = await res.json();
+    setRecent(data);
   }
 
-  function removeHabit(id) {
-    if (confirm("Remove this habit?")) {
-      const updated = habits.filter((h) => h.id !== id);
-      setHabits(updated);
-      save("habits", updated);
-    }
+  async function fetchSuggestions() {
+    const res = await fetch(`${API}/habits/suggestions`);
+    const data = await res.json();
+    setSuggested(data);
+  }
+
+  async function toggle(id) {
+    await fetch(`${API}/habits/${id}/toggle`, { method: "PATCH" });
+    fetchHabits();
+    fetchRecent();
   }
 
   return (
     <main className={container}>
-      {/* 🪞 Header */}
-      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft animate-fadeIn">
-        <h2 className="text-xl font-semibold mb-2">Daily Rhythm</h2>
-        <p className="text-[#7E7A74] text-sm leading-relaxed">
-          Gentle consistency builds quiet strength.
+      {/* Header */}
+      <section className={card}>
+        <h1 className="heading text-[1.35rem]">My Habits</h1>
+        <p className={subtext}>
+          Gentle structure to care for your everyday rhythm.
         </p>
       </section>
 
-      {/* 🌿 Habit List */}
-      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft">
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="text-lg font-semibold">Habits</h3>
-          <button
-            onClick={addHabit}
-            className="text-sm text-[#7E7A74] hover:text-[#2E2A26] transition-all duration-200"
-          >
-            + Add
-          </button>
-        </div>
+      {/* Daily habits */}
+      <section className={`${card} space-y-3`}>
+        <h2 className={heading}>Today</h2>
+        <p className={subtext}>
+          Tiny consistent actions build a grounded life.
+        </p>
 
         {habits.length === 0 ? (
-          <p className="text-[#7E7A74] italic text-sm">
-            Add small habits that anchor your days.
+          <p className="text-sm italic text-[#7E7A74] mt-2">
+            You haven’t set any habits yet.
           </p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="space-y-2 mt-2">
             {habits.map((h) => (
               <li
                 key={h.id}
-                className="p-3 rounded-xl bg-[#EDE7E0]/40 hover:bg-[#EDE7E0]/70 transition-all duration-300 flex items-center justify-between"
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl bg-[#FAF7F2] border ${
+                  h.last_checked?.startsWith(isoToday()) ? "opacity-70" : ""
+                }`}
               >
+                <input
+                  type="checkbox"
+                  checked={h.last_checked?.startsWith(isoToday())}
+                  onChange={() => toggle(h.id)}
+                  className="accent-[#9EC3B0]"
+                />
                 <span className="text-sm">{h.title}</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => toggleHabit(h.id)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                      h.lastChecked
-                        ? "bg-[#9EC3B0]/50 text-[#2E2A26]"
-                        : "bg-[#CBB9A8]/40 text-[#7E7A74]"
-                    }`}
-                  >
-                    {h.lastChecked ? "✓ done" : "mark"}
-                  </button>
-                  <span className="text-xs text-[#7E7A74]">
-                    🔁 {h.streak} day{h.streak !== 1 ? "s" : ""}
-                  </span>
-                  <button
-                    onClick={() => removeHabit(h.id)}
-                    className="text-[#7E7A74] hover:text-[#F2B8A2] text-sm transition-colors duration-200"
-                  >
-                    ✕
-                  </button>
-                </div>
               </li>
             ))}
           </ul>
         )}
       </section>
 
-      {/* 🌸 Reflection */}
-      {habits.length > 0 && (
-        <section className="p-5 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft">
-          <h3 className="text-lg font-semibold mb-3">Reflection</h3>
-          <p className="text-sm leading-relaxed text-[#2E2A26]/90">
-            You’re nurturing{" "}
-            <span className="font-medium text-[#9EC3B0]">
-              {habits.length}
-            </span>{" "}
-            habits right now — remember, showing up matters more than perfection.
+      {/* Suggestions */}
+      <section className={`${card} space-y-3`}>
+        <h2 className={heading}>Recommended</h2>
+        <p className={subtext}>
+          Based on things you often mention or seem to care about.
+        </p>
+
+        {suggested.length === 0 ? (
+          <p className="text-sm italic text-[#7E7A74] mt-2">
+            No suggestions yet — keep writing in My Journey 🤍
           </p>
-        </section>
-      )}
+        ) : (
+          <ul className="space-y-2 mt-2">
+            {suggested.map((s) => (
+              <li
+                key={s.id}
+                className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#FAF7F2] border"
+              >
+                <span className="text-sm">{s.title}</span>
+                <button className="text-xs px-3 py-1 rounded-lg bg-[#CBB9A8] text-white hover:bg-[#b9a088]">
+                  add
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* Recent Recap */}
+      <section className={`${card} space-y-3`}>
+        <h2 className={heading}>Recent Activity</h2>
+
+        {recent.length === 0 ? (
+          <p className="text-sm italic text-[#7E7A74] mt-2">
+            Nothing tracked yet — that’s okay 🤍
+          </p>
+        ) : (
+          <ul className="space-y-2 mt-2">
+            {recent.map((r) => (
+              <li
+                key={r.id}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#FAF7F2] border"
+              >
+                <span className="w-2.5 h-2.5 rounded-full bg-[#9EC3B0]" />
+                <span className="text-sm">
+                  {r.title} — {new Date(r.last_checked).toLocaleDateString()}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </main>
   );
 }
