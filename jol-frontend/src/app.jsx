@@ -1,42 +1,39 @@
 /**
- * Journey of Life — App Routing (Updated)
- * -------------------------------
- * Removes standalone pages: Summary, Progress, Highlights
- * All moved into My Journey tabs
+ * Journey of Life — App Routing (FINAL FIX)
  */
 
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import Home from "./pages/home";
-import MyJourney from "./pages/my-journey";
-import MyStory from "./pages/my-story";
-import HabitMain from "./pages/habits/habit-main"; // only main habits page needed now
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+
+import Home from "./pages/home.jsx";
+import MyJourney from "./pages/my-journey.jsx";
+import MyHabits from "./pages/my-habits.jsx";
+import MyStory from "./pages/my-story.jsx";
 
 export default function App() {
   return (
     <Router>
-      <div className="min-h-screen w-full">
-        <Routes>
-          {/* ✅ Main root */}
-          <Route path="/" element={<Home />} />
+      <Routes>
+        <Route path="/" element={<Home />} />
 
-          {/* ✅ My Journey (with internal tabs) */}
-          <Route path="/my-journey" element={<MyJourney />} />
+        {/* ✅ KEY PAGE */}
+        <Route path="/my-journey" element={<MyJourney />} />
 
-          {/* ✅ Habits */}
-          <Route path="/habits" element={<HabitMain />} />
+        <Route path="/my-habits" element={<MyHabits />} />
+        <Route path="/my-story" element={<MyStory />} />
 
-          {/* ✅ My Story */}
-          <Route path="/my-story" element={<MyStory />} />
+        {/* ✅ Redirect old routes */}
+        <Route path="/summary" element={<Navigate to="/my-journey" replace />} />
+        <Route path="/progress" element={<Navigate to="/my-journey" replace />} />
+        <Route path="/highlights" element={<Navigate to="/my-journey" replace />} />
 
-          {/* ✅ Redirect legacy pages to My Journey */}
-          <Route path="/summary" element={<Navigate to="/my-journey" replace />} />
-          <Route path="/progress" element={<Navigate to="/my-journey" replace />} />
-          <Route path="/highlights" element={<Navigate to="/my-journey" replace />} />
-
-          {/* ✅ Catch all → Home */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </div>
+        {/* ✅ Default redirect */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </Router>
   );
 }

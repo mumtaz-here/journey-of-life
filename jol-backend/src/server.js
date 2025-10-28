@@ -10,7 +10,7 @@ import db from "./db/index.js";
 import entriesRoute from "./routes/entries.js";
 import habitsRoute from "./routes/habits.js";
 import highlightsRoute from "./routes/highlights.js";
-import reflectionsRoute from "./routes/reflections.js";
+import storyRoutes from "./routes/story.js";
 import prioritiesRoute from "./routes/priorities.js";
 
 dotenv.config();
@@ -26,7 +26,7 @@ app.get("/", (req, res) => {
 app.use("/api/entries", entriesRoute);
 app.use("/api/habits", habitsRoute);
 app.use("/api/highlights", highlightsRoute);
-app.use("/api/reflections", reflectionsRoute);
+app.use("/api/story", storyRoutes);
 app.use("/api/priorities", prioritiesRoute);
 
 const PORT = process.env.PORT || 5000;

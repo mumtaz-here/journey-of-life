@@ -1,5 +1,5 @@
 /**
- * Journey of Life — Route: Highlights
+ * Journey of Life — Route: Highlights (FINAL FIXED)
  */
 
 import express from "express";
@@ -8,13 +8,11 @@ import {
   addHighlight,
   toggleHighlight,
   deleteHighlight,
-  initHighlightsTable,
 } from "../db/models/highlights.js";
 
 const router = express.Router();
 
-await initHighlightsTable();
-
+/** GET all */
 router.get("/", async (_req, res) => {
   try {
     const rows = await getAllHighlights();
@@ -24,10 +22,12 @@ router.get("/", async (_req, res) => {
   }
 });
 
+/** POST create (manual add) */
 router.post("/", async (req, res) => {
   try {
     const { text, planned_date = null, source_entry_id = null } = req.body;
     if (!text) return res.status(400).json({ error: "Text required" });
+
     const row = await addHighlight(text, planned_date, source_entry_id);
     res.json(row);
   } catch (err) {
@@ -35,6 +35,7 @@ router.post("/", async (req, res) => {
   }
 });
 
+/** PATCH toggle */
 router.patch("/:id/toggle", async (req, res) => {
   try {
     const updated = await toggleHighlight(req.params.id);
@@ -44,10 +45,11 @@ router.patch("/:id/toggle", async (req, res) => {
   }
 });
 
+/** DELETE */
 router.delete("/:id", async (req, res) => {
   try {
     await deleteHighlight(req.params.id);
-    res.json({ message: "Deleted" });
+    res.json({ message: "deleted" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
