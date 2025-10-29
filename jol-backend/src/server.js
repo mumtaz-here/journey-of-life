@@ -16,14 +16,14 @@ import prioritiesRoute from "./routes/priorities.js";
 dotenv.config();
 const app = express();
 
-/* ✅ aktifkan CORS spesifik untuk frontend kamu */
 app.use(
   cors({
-    origin: ["https://journey-of-life.pages.dev"],
-    methods: ["GET", "POST", "PATCH", "DELETE"],
-    credentials: true,
+    origin: ["https://journey-of-life.pages.dev"], // domain frontend kamu
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
 
 app.use(express.json());
 
