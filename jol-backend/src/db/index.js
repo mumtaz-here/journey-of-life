@@ -1,37 +1,20 @@
 /**
- * Journey of Life — Database Connection (Env Split Version)
- * ---------------------------------------------------------
- * Uses PostgreSQL via 'pg' client.
- * Reads connection from individual env variables.
+ * Journey of Life — Database Connection (Single Env)
  */
 
-import pg from "pg";
+import pkg from "pg";
 import dotenv from "dotenv";
 
 dotenv.config();
-
-const { Pool } = pg;
+const { Pool } = pkg;
 
 const pool = new Pool({
-  user: process.env.PG_USER,
-  password: process.env.PG_PASSWORD,
-  host: process.env.PG_HOST,
-  port: process.env.PG_PORT,
-  database: process.env.PG_DATABASE,
-  ssl: process.env.PG_SSL === "true" ? { rejectUnauthorized: false } : false,
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
 });
 
 export default {
-  /**
-   * Run a single SQL query
-   * @param {string} text - SQL text
-   * @param {Array} params - optional parameters
-   */
   query: (text, params) => pool.query(text, params),
-
-  /**
-   * Connect to database once on server start
-   */
   connect: async () => {
     try {
       const client = await pool.connect();
