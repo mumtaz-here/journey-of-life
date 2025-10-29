@@ -16,27 +16,25 @@ import prioritiesRoute from "./routes/priorities.js";
 dotenv.config();
 const app = express();
 
-app.use(
-  cors({
-    origin: ["https://journey-of-life.pages.dev"], // domain frontend kamu
-    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+// 🌐 CORS — versi fleksibel untuk testing
+app.use(cors()); // Izinkan semua origin dulu, nanti bisa diperketat
 
-
+// 🧠 Middleware
 app.use(express.json());
 
+// 🌱 Root route
 app.get("/", (req, res) => {
   res.json({ message: "Journey of Life API is breathing ✨" });
 });
 
+// 📚 API routes
 app.use("/api/entries", entriesRoute);
 app.use("/api/habits", habitsRoute);
 app.use("/api/highlights", highlightsRoute);
 app.use("/api/story", storyRoutes);
 app.use("/api/priorities", prioritiesRoute);
 
+// 🚀 Start server
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, async () => {
