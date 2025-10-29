@@ -1,5 +1,6 @@
 /**
- * Journey of Life — Database Connection (Neon + Railway Fix)
+ * Journey of Life — Database Connection (Final Fix)
+ * Override Railway PGHOST/base issue
  */
 
 import pkg from "pg";
@@ -8,14 +9,19 @@ import dotenv from "dotenv";
 dotenv.config();
 const { Pool } = pkg;
 
-// Gunakan DATABASE_URL manual biar tidak override oleh PGHOST bawaan Railway
+// 🧹 Hapus environment bawaan Railway yang bikin override
+delete process.env.PGHOST;
+delete process.env.PGUSER;
+delete process.env.PGDATABASE;
+delete process.env.PGPASSWORD;
+delete process.env.PGPORT;
+
+console.log("🧩 Using DATABASE_URL from env only");
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { require: true, rejectUnauthorized: false },
 });
-
-// Paksa hapus variable PGHOST bawaan Railway
-delete process.env.PGHOST;
 
 export default {
   query: (text, params) => pool.query(text, params),
