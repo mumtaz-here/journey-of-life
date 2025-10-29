@@ -1,5 +1,5 @@
 /**
- * Journey of Life — Backend Server (with Priorities)
+ * Journey of Life — Backend Server (Stable Production Setup)
  */
 
 import express from "express";
@@ -16,8 +16,14 @@ import prioritiesRoute from "./routes/priorities.js";
 dotenv.config();
 const app = express();
 
-// 🌐 CORS — versi fleksibel untuk testing
-app.use(cors()); // Izinkan semua origin dulu, nanti bisa diperketat
+// 🌐 CORS — aman untuk Cloudflare Pages
+app.use(
+  cors({
+    origin: ["https://journey-of-life.pages.dev"],
+    methods: ["GET", "POST", "PATCH", "DELETE"],
+    credentials: true,
+  })
+);
 
 // 🧠 Middleware
 app.use(express.json());
