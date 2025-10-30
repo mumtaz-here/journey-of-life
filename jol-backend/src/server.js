@@ -16,10 +16,13 @@ import prioritiesRoute from "./routes/priorities.js";
 dotenv.config();
 const app = express();
 
-// 🌐 CORS — aman untuk Cloudflare Pages
+// 🌐 CORS — aman untuk Cloudflare Pages dan subdomain
 app.use(
   cors({
-    origin: ["https://journey-of-life.pages.dev"],
+    origin: [
+      "https://journey-of-life.pages.dev",
+      "https://cbf23db2.journey-of-life.pages.dev"
+    ],
     methods: ["GET", "POST", "PATCH", "DELETE"],
     credentials: true,
   })
