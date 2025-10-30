@@ -24,7 +24,7 @@ export default function MyHabits() {
   const [draft, setDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const BASE_URL = "http://journey-of-life-production-e8af.up.railway.app/api/habits";
+  const BASE_URL = "https://journey-of-life-production-e8af.up.railway.app/api/habits";
 
   async function load() {
     setLoading(true);
