@@ -8,7 +8,6 @@
  */
 
 import { useEffect, useState, useMemo } from "react";
-import { fetchHabits, addHabit, toggleHabit } from "../utils/api";
 
 const shell =
   "max-w-2xl mx-auto px-5 py-8 text-[#2E2A26] bg-[#FAF7F2] min-h-screen";
@@ -25,10 +24,18 @@ export default function MyHabits() {
   const [draft, setDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const BASE_URL = "http://journey-of-life-production-e8af.up.railway.app/api/habits";
+
   async function load() {
     setLoading(true);
-    const data = await fetchHabits();
-    setHabits(Array.isArray(data) ? data : []);
+    try {
+      const res = await fetch(BASE_URL);
+      const data = await res.json();
+      setHabits(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Fetch error:", err);
+      setHabits([]);
+    }
     setLoading(false);
   }
 
@@ -40,18 +47,30 @@ export default function MyHabits() {
   const hasData = habits.length > 0;
 
   async function onToggle(id) {
-    await toggleHabit(id);
-    load();
+    try {
+      await fetch(`${BASE_URL}/${id}/toggle`, { method: "PATCH" });
+      load();
+    } catch (err) {
+      console.error("Toggle error:", err);
+    }
   }
 
   async function onSubmit(e) {
     e?.preventDefault?.();
     if (!draft.trim() || submitting) return;
     setSubmitting(true);
-    await addHabit(draft.trim());
-    setDraft("");
+    try {
+      await fetch(BASE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: draft.trim() }),
+      });
+      setDraft("");
+      load();
+    } catch (err) {
+      console.error("Submit error:", err);
+    }
     setSubmitting(false);
-    load();
   }
 
   return (
