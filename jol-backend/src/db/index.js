@@ -9,7 +9,7 @@ import dotenv from "dotenv";
 dotenv.config();
 const { Pool } = pkg;
 
-// 🧹 Hapus environment bawaan Railway yang bikin override
+// 🧹 Bersihkan env default dari Railway agar tidak menimpa DATABASE_URL
 delete process.env.PGHOST;
 delete process.env.PGUSER;
 delete process.env.PGDATABASE;

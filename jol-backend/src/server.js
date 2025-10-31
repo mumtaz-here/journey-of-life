@@ -16,12 +16,12 @@ import prioritiesRoute from "./routes/priorities.js";
 dotenv.config();
 const app = express();
 
-// 🌐 CORS — izinkan semua origin (tanpa batasan)
+// 🌐 CORS — izinkan semua domain agar frontend Cloudflare bisa akses
 app.use(
   cors({
-    origin: "*", // izinkan semua domain
+    origin: "*",
     methods: ["GET", "POST", "PATCH", "DELETE"],
-    credentials: false // harus false kalau pakai "*"
+    credentials: false, // harus false kalau origin = "*"
   })
 );
 
@@ -40,10 +40,10 @@ app.use("/api/highlights", highlightsRoute);
 app.use("/api/story", storyRoutes);
 app.use("/api/priorities", prioritiesRoute);
 
-// 🚀 Start server
+// 🚀 Jalankan server
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, async () => {
   await db.connect();
-  console.log("✅ DB & Server running → http://localhost:" + PORT);
+  console.log(`✅ DB & Server running → http://localhost:${PORT}`);
 });
