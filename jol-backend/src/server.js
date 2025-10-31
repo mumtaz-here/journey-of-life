@@ -1,5 +1,5 @@
 /**
- * Journey of Life — Backend Server (Open CORS Setup)
+ * Journey of Life — Backend Server (Final Open CORS Setup)
  */
 
 import express from "express";
@@ -16,12 +16,16 @@ import prioritiesRoute from "./routes/priorities.js";
 dotenv.config();
 const app = express();
 
-// 🌐 CORS — izinkan semua domain agar frontend Cloudflare bisa akses
+// 🌐 CORS — izinkan domain frontend & localhost
 app.use(
   cors({
-    origin: "*",
+    origin: [
+      "https://journey-of-life.pages.dev",
+      "http://localhost:5173",
+      "http://localhost:3000",
+    ],
     methods: ["GET", "POST", "PATCH", "DELETE"],
-    credentials: false, // harus false kalau origin = "*"
+    credentials: false,
   })
 );
 
@@ -40,10 +44,10 @@ app.use("/api/highlights", highlightsRoute);
 app.use("/api/story", storyRoutes);
 app.use("/api/priorities", prioritiesRoute);
 
-// 🚀 Jalankan server
+// 🚀 Start server
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, async () => {
   await db.connect();
-  console.log(`✅ DB & Server running → http://localhost:${PORT}`);
+  console.log("✅ DB & Server running → http://localhost:" + PORT);
 });

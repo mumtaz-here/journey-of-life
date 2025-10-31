@@ -1,6 +1,5 @@
 /**
  * Journey of Life — Database Connection (Final Fix)
- * Override Railway PGHOST/base issue
  */
 
 import pkg from "pg";
@@ -9,7 +8,7 @@ import dotenv from "dotenv";
 dotenv.config();
 const { Pool } = pkg;
 
-// 🧹 Bersihkan env default dari Railway agar tidak menimpa DATABASE_URL
+// Hapus env PG bawaan Railway
 delete process.env.PGHOST;
 delete process.env.PGUSER;
 delete process.env.PGDATABASE;
