@@ -6,6 +6,7 @@
 
 import db from "../index.js";
 
+
 export async function initPrioritiesTable() {
   await db.query(`
     CREATE TABLE IF NOT EXISTS priorities (

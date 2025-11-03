@@ -21,8 +21,10 @@ import {
 } from "../db/models/priorities.js";
 
 const router = express.Router();
-await initPrioritiesTable();
 
+// ❌ Hapus top-level await (dipanggil dari server.js)
+
+// 🕓 helper fungsi: tanggal hari ini dalam format ISO
 function isoToday() {
   const d = new Date();
   const y = d.getFullYear();
@@ -31,6 +33,7 @@ function isoToday() {
   return `${y}-${m}-${day}`;
 }
 
+// 📖 GET — ambil prioritas berdasarkan tanggal
 router.get("/", async (req, res) => {
   try {
     const date = req.query.date || isoToday();
@@ -41,22 +44,31 @@ router.get("/", async (req, res) => {
   }
 });
 
+// ➕ POST — tambah prioritas baru
 router.post("/", async (req, res) => {
   try {
     const { text, date, source_entry_id } = req.body;
     const day = date || isoToday();
+
     if (!text) return res.status(400).json({ error: "Text is required" });
 
     const count = await countPrioritiesByDate(day);
-    if (count >= 3) return res.status(400).json({ error: "Max 3 priorities for the day" });
+    if (count >= 3)
+      return res.status(400).json({ error: "Max 3 priorities for the day" });
 
-    const row = await addPriority({ text, date: day, source_entry_id: source_entry_id || null });
+    const row = await addPriority({
+      text,
+      date: day,
+      source_entry_id: source_entry_id || null,
+    });
+
     res.json(row);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
+// ✏️ PATCH — update prioritas
 router.patch("/:id", async (req, res) => {
   try {
     const { text, status } = req.body;
@@ -67,6 +79,7 @@ router.patch("/:id", async (req, res) => {
   }
 });
 
+// ✅ PATCH — toggle status
 router.patch("/:id/toggle", async (req, res) => {
   try {
     const row = await togglePriority(req.params.id);
@@ -76,6 +89,7 @@ router.patch("/:id/toggle", async (req, res) => {
   }
 });
 
+// 🗑️ DELETE — hapus prioritas
 router.delete("/:id", async (req, res) => {
   try {
     await deletePriority(req.params.id);
@@ -85,4 +99,6 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+// export router + fungsi init
+export { initPrioritiesTable };
 export default router;

@@ -1,4 +1,4 @@
-import pool from "../index.js";
+// import db from "../index.js";
 
 const storyModel = {
   async getAll() {

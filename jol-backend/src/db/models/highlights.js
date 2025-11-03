@@ -4,7 +4,7 @@
  * Supports auto-planning from journaling & provenance.
  */
 
-import db from "../index.js";
+// import db from "../index.js";
 
 export async function initHighlightsTable() {
   await db.query(`

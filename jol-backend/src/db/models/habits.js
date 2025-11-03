@@ -1,4 +1,4 @@
-import pool from "../index.js";
+// import db from "../index.js";
 
 const habitsModel = {
   async getAll() {
