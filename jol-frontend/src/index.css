@@ -1,23 +1,37 @@
-@import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Inter:wght@300;400;500;600&display=swap');
 
+/* === Google Fonts: lebih aman taruh di index.html pakai <link> === */
+/* Kalau tetap mau di sini, pastikan baris ini langsung setelah Tailwind */
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Inter:wght@300;400;500;600&display=swap");
+
+/* === Tailwind directives harus paling atas === */
+@import "tailwindcss";
+
+
+/* === Custom global styles === */
 :root {
-  --font-heading: 'Cormorant Garamond', serif;
-  --font-body: 'Inter', sans-serif;
+  --font-heading: "Cormorant Garamond", serif;
+  --font-body: "Inter", sans-serif;
+  --beige: #faf7f2;
+  --coral: #e7d4c3;
+  --mint: #9ec3b0;
+  --sage: #cbd4c4;
+  --espresso: #2e2a26;
 }
 
 body {
-  background-color: #FAF7F2;
+  background-color: var(--beige);
   font-family: var(--font-body);
-  color: #2E2A26;
+  color: var(--espresso);
+  transition: background-color 0.5s ease;
 }
 
+/* Utility tambahan */
 .rounded-soft {
   border-radius: 18px;
 }
 
 .shadow-soft {
-  box-shadow: 0px 2px 6px rgba(0,0,0,0.06);
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.05);
 }
 
 .heading {
@@ -25,5 +39,52 @@ body {
   font-weight: 600;
   font-size: 1.15rem;
   letter-spacing: -0.4px;
-  color: #2E2A26;
+  color: var(--espresso);
+}
+
+button,
+textarea,
+input {
+  transition: all 0.25s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+}
+
+textarea {
+  resize: none;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #e8e1da;
+  border-radius: 10px;
+}
+
+/* Background gradient blur */
+body::before {
+  content: "";
+  position: fixed;
+  top: -10%;
+  left: -10%;
+  width: 120%;
+  height: 120%;
+  background: radial-gradient(
+      circle at 20% 30%,
+      rgba(231, 212, 195, 0.35),
+      transparent 60%
+    ),
+    radial-gradient(
+      circle at 80% 70%,
+      rgba(158, 195, 176, 0.25),
+      transparent 60%
+    );
+  z-index: -1;
+  filter: blur(40px);
+  opacity: 0.6;
 }

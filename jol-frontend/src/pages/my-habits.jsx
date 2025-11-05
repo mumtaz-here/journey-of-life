@@ -1,166 +1,320 @@
 /**
- * Journey of Life — My Habits (Bubble Style • Option 2)
- * -----------------------------------------------------
- * - All bubbles on the right (user voice)
- * - "Done today" indicated by a tiny green dot on the left
- * - Calm motion (fade + lift), soft colors, planner-first
- * - Backend: GET /habits, POST /habits, PATCH /habits/:id/toggle
+ * Journey of Life — My Journey (User Writes Freely, AI Reflects Calmly)
+ * Write = personal space, no AI.
+ * Other tabs use AI to reflect on entries.
  */
 
-import { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import "../app.css";
 
-const shell =
-  "max-w-2xl mx-auto px-5 py-8 text-[#2E2A26] bg-[#FAF7F2] min-h-screen";
+const API = "http://localhost:5000/api";
+
+const pageContainer =
+  "max-w-2xl mx-auto px-5 py-8 flex flex-col gap-6 text-[#2E2A26]";
 const card =
-  "rounded-2xl bg-white border border-[#E8E1DA] shadow-sm";
+  "p-5 rounded-soft bg-white border border-[#ECE5DD] shadow-soft";
+const heading = "heading mb-1";
+const subtext = "text-sm text-[#7E7A74]";
 
-function isoToday() {
-  return new Date().toISOString().split("T")[0];
+const tabBtn = "px-4 py-2 rounded-full text-sm transition-colors border";
+const activeTab = "bg-[#2E2A26] text-white border-[#2E2A26]";
+const idleTab = "bg-white text-[#2E2A26] border-[#E8E1DA] hover:bg-[#FAF7F2]";
+
+function formatDate(d) {
+  try {
+    return new Date(d).toLocaleString("en-GB", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  } catch {
+    return "";
+  }
 }
 
-export default function MyHabits() {
-  const [habits, setHabits] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [draft, setDraft] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+export default function MyJourney() {
+  const [tab, setTab] = useState("write");
+  const tabs = ["write", "summary", "progress", "highlights"];
 
-  const BASE_URL = "https://journey-of-life-production-e8af.up.railway.app/api/habits";
+  return (
+    <main className={pageContainer}>
+      <section className={card}>
+        <h1 className="heading text-[1.35rem]">My Journey</h1>
+        <p className={subtext}>Your story in a calm flow.</p>
+      </section>
 
-  async function load() {
-    setLoading(true);
-    try {
-      const res = await fetch(BASE_URL);
-      const data = await res.json();
-      setHabits(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Fetch error:", err);
-      setHabits([]);
-    }
-    setLoading(false);
+      <nav className="flex items-center gap-2">
+        {tabs.map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`${tabBtn} ${tab === t ? activeTab : idleTab} capitalize`}
+          >
+            {t}
+          </button>
+        ))}
+      </nav>
+
+      {tab === "write" && <WritePanel />}
+      {tab === "summary" && <SummaryPanel />}
+      {tab === "progress" && <ProgressPanel />}
+      {tab === "highlights" && <HighlightsPanel />}
+    </main>
+  );
+}
+
+/* ===============================
+   WRITE PANEL — USER-ONLY
+   =============================== */
+function WritePanel() {
+  const [entries, setEntries] = useState([]);
+  const [text, setText] = useState("");
+  const [saving, setSaving] = useState(false);
+  const endRef = useRef(null);
+
+  async function fetchEntries() {
+    const res = await fetch(`${API}/entries`);
+    const data = await res.json();
+    data.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    setEntries(data);
   }
 
   useEffect(() => {
-    load();
+    fetchEntries();
   }, []);
 
-  const todayKey = useMemo(() => isoToday(), []);
-  const hasData = habits.length > 0;
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [entries]);
 
-  async function onToggle(id) {
-    try {
-      await fetch(`${BASE_URL}/${id}/toggle`, { method: "PATCH" });
-      load();
-    } catch (err) {
-      console.error("Toggle error:", err);
-    }
-  }
-
-  async function onSubmit(e) {
-    e?.preventDefault?.();
-    if (!draft.trim() || submitting) return;
-    setSubmitting(true);
-    try {
-      await fetch(BASE_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: draft.trim() }),
-      });
-      setDraft("");
-      load();
-    } catch (err) {
-      console.error("Submit error:", err);
-    }
-    setSubmitting(false);
+  async function submit() {
+    if (!text.trim()) return;
+    setSaving(true);
+    await fetch(`${API}/entries`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    setSaving(false);
+    setText("");
+    fetchEntries();
   }
 
   return (
-    <main className={shell}>
-      {/* Header */}
-      <section className={`${card} px-5 py-4 mb-6`}>
-        <h1 className="text-lg font-semibold tracking-tight">My Habits</h1>
-        <p className="text-sm text-[#7E7A74] mt-1">
-          Gentle rhythm to support your day.
-        </p>
-      </section>
+    <section className={`${card} flex flex-col gap-4`}>
+      <div className="flex justify-between items-center">
+        <h2 className={heading}>Write</h2>
+        <p className={subtext}>Only your words here — no AI reflections.</p>
+      </div>
 
-      {/* Bubble list */}
-      <section className="space-y-3 mb-24">
-        {loading && (
-          <div className="text-center text-sm opacity-70">Loading…</div>
-        )}
-
-        {!loading && !hasData && (
-          <div className={`${card} px-4 py-3 text-sm text-center text-[#7E7A74]`}>
-            No habits yet. Add one below to begin.
-          </div>
-        )}
-
-        {!loading &&
-          habits.map((h) => {
-            const doneToday = h.last_checked?.startsWith(todayKey);
-            return (
-              <div
-                key={h.id}
-                className="flex items-end gap-2 animate-[fadeIn_220ms_ease-out] will-change-transform"
-              >
-                {/* tiny status dot on the LEFT */}
-                <button
-                  aria-label={doneToday ? "done today" : "not done yet"}
-                  onClick={() => onToggle(h.id)}
-                  className={`shrink-0 w-2.5 h-2.5 rounded-full translate-y-1 transition
-                    ${doneToday ? "bg-[#9EC3B0]" : "bg-[#E8E1DA]"}`}
-                  title={doneToday ? "Done today" : "Tap to mark done"}
-                />
-
-                {/* bubble on the RIGHT */}
-                <div className="ml-auto max-w-[85%]">
-                  <button
-                    onClick={() => onToggle(h.id)}
-                    className={`text-left w-full ${card} px-4 py-2.5 transition
-                      hover:shadow-md hover:-translate-y-[1px]
-                      ${doneToday ? "opacity-75" : "opacity-100"}`}
-                  >
-                    <div className="text-sm leading-relaxed">{h.title}</div>
-                    {doneToday && (
-                      <div className="mt-1 text-[11px] text-[#7E7A74]">
-                        marked today
-                      </div>
-                    )}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-      </section>
-
-      {/* Chat-style input bar (sticky bottom) */}
-      <form
-        onSubmit={onSubmit}
-        className="fixed bottom-0 left-0 right-0 border-t border-[#E8E1DA] bg-[#FAF7F2]/90 backdrop-blur supports-[backdrop-filter]:bg-[#FAF7F2]/70"
-      >
-        <div className="mx-auto max-w-2xl px-5 py-3 flex items-center gap-2">
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Add a gentle habit…"
-            className="flex-1 bg-white border border-[#E8E1DA] rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#CBB9A8]"
-          />
-          <button
-            disabled={!draft.trim() || submitting}
-            className="px-4 py-2 rounded-xl text-sm text-white bg-[#9EC3B0] disabled:opacity-50 hover:opacity-90 transition"
-          >
-            Save
-          </button>
+      {/* feed */}
+      <div className="max-h-[60vh] overflow-y-auto pr-1">
+        <div className="flex flex-col gap-4">
+          {entries.length === 0 ? (
+            <p className="text-sm italic text-[#7E7A74]">
+              Start writing your thoughts…
+            </p>
+          ) : (
+            entries.map((e) => <UserBubble key={e.id} data={e} />)
+          )}
+          <div ref={endRef} />
         </div>
-      </form>
+      </div>
 
-      {/* keyframes */}
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(4px) }
-          to   { opacity: 1; transform: translateY(0) }
-        }
-      `}</style>
-    </main>
+      {/* composer */}
+      <div className="flex gap-2">
+        <textarea
+          className="flex-1 h-24 px-3 py-2 rounded-xl bg-[#FAF7F2] border text-sm"
+          placeholder="Write freely (English only)…"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+        <button
+          onClick={submit}
+          disabled={!text.trim() || saving}
+          className={`px-4 py-2 rounded-xl text-sm text-white ${
+            saving
+              ? "bg-[#CBB9A8]/40 cursor-not-allowed"
+              : "bg-[#9EC3B0] hover:bg-[#86b7a0]"
+          }`}
+        >
+          {saving ? "Saving…" : "Send"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/* ===============================
+   SUMMARY PANEL — AI REFLECTION
+   =============================== */
+function SummaryPanel() {
+  const [summary, setSummary] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function generateSummary() {
+    setLoading(true);
+    try {
+      const resEntries = await fetch(`${API}/entries`);
+      const entries = await resEntries.json();
+      const combinedText = entries.map((e) => e.text).join("\n");
+
+      const res = await fetch(`${API}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: `Summarize these reflections in a gentle, empathetic tone:\n${combinedText}`,
+        }),
+      });
+
+      const data = await res.json();
+      setSummary(data.reply);
+    } catch (e) {
+      setSummary("⚠️ Failed to fetch AI summary.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className={card}>
+      <div className="flex justify-between items-center">
+        <h2 className={heading}>Summary</h2>
+        <button
+          onClick={generateSummary}
+          disabled={loading}
+          className="px-4 py-2 rounded-xl bg-[#CBB9A8] text-white hover:bg-[#BCA691]"
+        >
+          {loading ? "Thinking…" : "Generate"}
+        </button>
+      </div>
+
+      {summary && (
+        <div className="mt-4 p-3 bg-[#FAF7F2] border rounded-xl whitespace-pre-wrap">
+          {summary}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ===============================
+   PROGRESS PANEL — AI INSIGHT
+   =============================== */
+function ProgressPanel() {
+  const [progress, setProgress] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function generateProgress() {
+    setLoading(true);
+    try {
+      const resEntries = await fetch(`${API}/entries`);
+      const entries = await resEntries.json();
+      const combinedText = entries.map((e) => e.text).join("\n");
+
+      const res = await fetch(`${API}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: `Analyze the emotional and mindset progress across these journal entries:\n${combinedText}`,
+        }),
+      });
+
+      const data = await res.json();
+      setProgress(data.reply);
+    } catch (e) {
+      setProgress("⚠️ Failed to fetch AI progress.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className={card}>
+      <div className="flex justify-between items-center">
+        <h2 className={heading}>Progress</h2>
+        <button
+          onClick={generateProgress}
+          disabled={loading}
+          className="px-4 py-2 rounded-xl bg-[#CBB9A8] text-white hover:bg-[#BCA691]"
+        >
+          {loading ? "Analyzing…" : "Analyze"}
+        </button>
+      </div>
+
+      {progress && (
+        <div className="mt-4 p-3 bg-[#FAF7F2] border rounded-xl whitespace-pre-wrap">
+          {progress}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ===============================
+   HIGHLIGHTS PANEL — AI TAKEAWAYS
+   =============================== */
+function HighlightsPanel() {
+  const [highlights, setHighlights] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function generateHighlights() {
+    setLoading(true);
+    try {
+      const resEntries = await fetch(`${API}/entries`);
+      const entries = await resEntries.json();
+      const combinedText = entries.map((e) => e.text).join("\n");
+
+      const res = await fetch(`${API}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: `Extract the 3 most meaningful insights or quotes from these journal entries in a reflective tone:\n${combinedText}`,
+        }),
+      });
+
+      const data = await res.json();
+      setHighlights(data.reply);
+    } catch (e) {
+      setHighlights("⚠️ Failed to fetch AI highlights.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className={card}>
+      <div className="flex justify-between items-center">
+        <h2 className={heading}>Highlights</h2>
+        <button
+          onClick={generateHighlights}
+          disabled={loading}
+          className="px-4 py-2 rounded-xl bg-[#CBB9A8] text-white hover:bg-[#BCA691]"
+        >
+          {loading ? "Finding…" : "Generate"}
+        </button>
+      </div>
+
+      {highlights && (
+        <div className="mt-4 p-3 bg-[#FAF7F2] border rounded-xl whitespace-pre-wrap">
+          {highlights}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ===============================
+   USER BUBBLE
+   =============================== */
+function UserBubble({ data }) {
+  return (
+    <div className="flex justify-end">
+      <div className="max-w-[85%] bg-[#F2B8A2]/40 border border-[#E8E1DA] rounded-2xl rounded-br-md px-3 py-2 shadow-soft">
+        <p className="text-sm leading-relaxed whitespace-pre-wrap">{data.text}</p>
+        <p className="text-[11px] text-[#7E7A74] mt-1 text-right">
+          {formatDate(data.created_at)}
+        </p>
+      </div>
+    </div>
   );
 }

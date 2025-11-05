@@ -1,52 +1,57 @@
-// import db from "../index.js";
+/**
+ * Journey of Life — DB Model: Habits (FINAL MATCHING TABLE STRUCTURE)
+ */
 
-const habitsModel = {
-  async getAll() {
-    const { rows } = await pool.query(
-      `SELECT * FROM habits ORDER BY created_at ASC`
-    );
-    return rows;
-  },
+import db from "../index.js";
 
-  async create(title) {
-    const { rows } = await pool.query(
-      `INSERT INTO habits (title)
-       VALUES ($1)
-       RETURNING *`,
-      [title]
-    );
-    return rows[0];
-  },
+// 🔍 Ambil semua habit
+export async function getAll() {
+  const res = await db.query(
+    "SELECT id, title, streak, last_checked, created_at FROM habits ORDER BY id DESC"
+  );
+  return res.rows;
+}
 
-  async toggle(id) {
-    const today = new Date().toISOString().split("T")[0];
+// ➕ Tambah habit baru (default streak 0)
+export async function create(title) {
+  const res = await db.query(
+    `INSERT INTO habits (title, streak, last_checked)
+     VALUES ($1, 0, CURRENT_DATE)
+     RETURNING *`,
+    [title]
+  );
+  return res.rows[0];
+}
 
-    const current = await pool.query(
-      `SELECT * FROM habits WHERE id = $1`,
-      [id]
-    );
-    const h = current.rows[0];
-    if (!h) throw new Error("Habit not found");
+// 🔄 Toggle habit (update streak)
+export async function toggle(id) {
+  // Ambil data habit
+  const cur = await db.query("SELECT * FROM habits WHERE id=$1", [id]);
+  if (cur.rows.length === 0) return null;
 
-    const newStreak =
-      h.last_checked === today ? Math.max(0, h.streak - 1) : h.streak + 1;
-    const newDate =
-      h.last_checked === today ? null : today;
+  const habit = cur.rows[0];
+  const today = new Date().toISOString().slice(0, 10);
 
-    const updated = await pool.query(
-      `UPDATE habits
-       SET streak = $1, last_checked = $2
-       WHERE id = $3
-       RETURNING *`,
-      [newStreak, newDate, id]
-    );
-    return updated.rows[0];
-  },
+  let newStreak = habit.streak || 0;
 
-  async remove(id) {
-    await pool.query(`DELETE FROM habits WHERE id = $1`, [id]);
-    return true;
+  // kalau belum dicentang hari ini, tambah streak
+  if (!habit.last_checked || habit.last_checked.toISOString().slice(0, 10) !== today) {
+    newStreak += 1;
   }
-};
 
-export default habitsModel;
+  // update habit
+  const res = await db.query(
+    `UPDATE habits
+     SET streak=$1, last_checked=CURRENT_DATE
+     WHERE id=$2
+     RETURNING *`,
+    [newStreak, id]
+  );
+
+  return res.rows[0];
+}
+
+// 🗑️ Hapus habit
+export async function remove(id) {
+  await db.query("DELETE FROM habits WHERE id=$1", [id]);
+}

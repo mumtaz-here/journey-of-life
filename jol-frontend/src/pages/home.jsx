@@ -1,177 +1,190 @@
-import { useEffect, useState } from "react";
-import {
-  fetchHabits,
-  toggleHabit,
-  fetchHighlights,
-  toggleHighlight,
-} from "../utils/api";
-import { useNavigate } from "react-router-dom";
+/**
+ * Journey of Life — Page: Home (WhatsApp-perfect, JOL style)
+ * Rebranding v9
+ *
+ * - Calm beige theme + subtle pattern background
+ * - User-only chat (right side bubbles)
+ * - WhatsApp-like grouping (same minute → one stack)
+ * - Timestamp inside last bubble (bottom-right)
+ * - Date separator capsule (DD/MM/YYYY)
+ * - Compact rhythm (2px within group, 8px between groups)
+ */
 
-const container =
-  "max-w-2xl mx-auto px-5 py-8 flex flex-col gap-8 text-[#2E2A26] bg-[#FAF7F2] min-h-screen";
+import { useEffect, useRef, useState } from "react";
+import { createEntry, fetchEntries } from "../utils/api";
 
-// Placeholder quote — can be dynamic later
-function Quote() {
-  return (
-    <div className="bg-white rounded-xl p-5 shadow-sm text-center italic opacity-75">
-      “A calm step is still a step.”
-    </div>
-  );
+/* ---------------- Helpers ---------------- */
+
+function formatDateCapsule(iso) {
+  // DD/MM/YYYY (WhatsApp-like in your screenshot)
+  const d = new Date(iso);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
 }
 
+function formatTime(iso) {
+  const d = new Date(iso);
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function sameMinute(a, b) {
+  if (!a || !b) return false;
+  const da = new Date(a.created_at);
+  const db = new Date(b.created_at);
+  return Math.abs(db - da) < 60000; // 60s
+}
+
+/* ---------------- Component ---------------- */
+
 export default function Home() {
-  const navigate = useNavigate();
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const chatRef = useRef(null);
 
-  const [habits, setHabits] = useState([]);
-  const [highlights, setHighlights] = useState([]);
-  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    loadEntries();
+  }, []);
 
-  async function loadData() {
-    setLoading(true);
-    const h = await fetchHabits();
-    const hl = await fetchHighlights();
-    setHabits(h);
-    setHighlights(hl);
-    setLoading(false);
+  async function loadEntries() {
+    const data = await fetchEntries();
+    if (Array.isArray(data)) {
+      setMessages(
+        data.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+      );
+    }
   }
 
   useEffect(() => {
-    loadData();
-  }, []);
+    // auto-scroll to bottom like WhatsApp
+    chatRef.current?.scrollTo({
+      top: chatRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [messages]);
 
-  // Light Tasks (3 habits)
-  const lightTasks = habits.slice(0, 3);
+  async function handleSend(e) {
+    e.preventDefault();
+    if (!text.trim()) return;
 
-  // Priorities = highlights not done
-  const priorities = highlights
-    .filter((h) => h.status !== "done")
-    .slice(0, 3);
+    const local = {
+      id: Date.now(),
+      text,
+      created_at: new Date().toISOString(),
+    };
 
-  // Today’s Plans = highlights with planned status
-  const todaysPlans = highlights
-    .filter((h) => h.status === "planned")
-    .slice(0, 3);
-
-  if (loading) {
-    return (
-      <main className={container}>
-        <p className="text-center opacity-75">Loading...</p>
-      </main>
-    );
+    setMessages((prev) => [...prev, local]);
+    setText("");
+    setLoading(true);
+    await createEntry(local.text);
+    setLoading(false);
+    loadEntries();
   }
 
+  // group by date (day)
+  const byDate = messages.reduce((acc, m) => {
+    const key = new Date(m.created_at).toDateString();
+    (acc[key] ||= []).push(m);
+    return acc;
+  }, {});
+
   return (
-    <main className={container}>
+    <main className="h-screen flex flex-col text-[#2E2A26] bg-[#FAF7F2] font-[Inter,Roboto,system-ui]">
+      {/* Inline tiny pattern (subtle, calm) */}
+      <style>{`
+        .jol-pattern {
+          background-image:
+            radial-gradient(#00000008 1px, transparent 1px),
+            radial-gradient(#00000006 1px, transparent 1px);
+          background-position: 0 0, 12px 12px;
+          background-size: 24px 24px;
+        }
+      `}</style>
 
-      {/* QUOTE */}
-      <Quote />
+      {/* Header (clean) */}
+      <header className="sticky top-0 z-10 bg-[#FAF7F2]/85 backdrop-blur border-b border-[#E8E1DA] py-3 text-center text-sm font-medium">
+        💬 Personal Chat Room
+      </header>
 
-      {/* LIGHT TASKS */}
-      <section>
-        <h2 className="font-semibold mb-3">Light Tasks</h2>
-        <div className="space-y-2">
-          {lightTasks.length === 0 && (
-            <p className="text-sm opacity-60">No habits yet.</p>
-          )}
-          {lightTasks.map((h) => (
-            <div
-              key={h.id}
-              className="flex justify-between items-center bg-white p-3 rounded-xl shadow-sm"
-            >
-              <span>{h.title}</span>
-              <button
-                className="w-5 h-5 rounded-full border"
-                onClick={async () => {
-                  await toggleHabit(h.id);
-                  loadData();
-                }}
-              />
+      {/* Chat feed */}
+      <div
+        ref={chatRef}
+        className="flex-1 overflow-y-auto px-3 sm:px-5 py-4 max-w-2xl w-full mx-auto flex flex-col jol-pattern"
+      >
+        {Object.keys(byDate).map((dateKey) => {
+          const msgs = byDate[dateKey];
+
+          return (
+            <div key={dateKey} className="mt-3">
+              {/* Date capsule */}
+              <div className="flex justify-center mb-2">
+                <span className="text-[11px] leading-none text-white bg-[#A89786] px-3 py-1 rounded-full shadow-sm">
+                  {formatDateCapsule(msgs[0].created_at)}
+                </span>
+              </div>
+
+              {/* Messages of the day */}
+              {msgs.map((m, i) => {
+                const prev = msgs[i - 1];
+                const next = msgs[i + 1];
+                const start = !sameMinute(prev, m);
+                const end = !sameMinute(m, next);
+
+                return (
+                  <div
+                    key={m.id}
+                    className={`flex flex-col items-end ${
+                      start ? "mt-2" : "mt-[2px]"
+                    }`}
+                  >
+                    <div
+                      className={[
+                        "relative max-w-[80%] px-4 py-2 text-[14px] leading-relaxed bg-white",
+                        "border border-[#E8E1DA] shadow-sm",
+                        // WA bubble: big round, but bottom-right sharper
+                        start ? "rounded-2xl rounded-br-md" : "rounded-2xl rounded-br-md",
+                        // compact stack rhythm like WA
+                        end ? "pr-12 pb-4" : "", // space for timestamp inside
+                      ].join(" ")}
+                    >
+                      {m.text}
+                      {end && (
+                        <span className="absolute bottom-1 right-3 text-[10px] text-[#6E6A65] opacity-75 select-none">
+                          {formatTime(m.created_at)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          ))}
-        </div>
-      </section>
+          );
+        })}
+      </div>
 
-      {/* PRIORITIES */}
-      <section>
-        <h2 className="font-semibold mb-3">Today’s Top Priorities</h2>
-        <div className="space-y-2">
-          {priorities.length === 0 && (
-            <p className="text-sm opacity-60">No priorities yet.</p>
-          )}
-          {priorities.map((p) => (
-            <div
-              key={p.id}
-              className="flex justify-between items-center bg-white p-3 rounded-xl shadow-sm"
-            >
-              <span>{p.text}</span>
-              <button
-                className="w-5 h-5 rounded-full border"
-                onClick={async () => {
-                  await toggleHighlight(p.id);
-                  loadData();
-                }}
-              />
-            </div>
-          ))}
-        </div>
+      {/* Input bar */}
+      <form
+        onSubmit={handleSend}
+        className="border-t border-[#E8E1DA] bg-[#FAF7F2] px-3 sm:px-4 py-3 flex items-center gap-2 max-w-2xl mx-auto w-full"
+      >
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Write a message..."
+          rows={1}
+          className="flex-1 p-3 rounded-full border border-[#E8E1DA] bg-white focus:outline-none focus:ring-2 focus:ring-[#D8C2AE]/50 resize-none text-[14px]"
+        />
         <button
-          className="mt-2 text-sm underline opacity-70"
-          onClick={() => navigate("/highlights")}
+          type="submit"
+          disabled={loading}
+          className={`px-4 py-2 rounded-full text-white text-sm font-medium transition
+            ${loading ? "bg-[#D8C2AE]/50 cursor-wait" : "bg-[#D8C2AE] hover:opacity-90 active:scale-[.97]"}`}
         >
-          Add priority
+          {loading ? "..." : "Send"}
         </button>
-      </section>
-
-      {/* TODAY PLANS */}
-      <section>
-        <h2 className="font-semibold mb-3">Today’s Plans</h2>
-        <div className="space-y-2">
-          {todaysPlans.length === 0 && (
-            <p className="text-sm opacity-60">No plans today.</p>
-          )}
-          {todaysPlans.map((p) => (
-            <div
-              key={p.id}
-              className="flex justify-between items-center bg-white p-3 rounded-xl shadow-sm"
-            >
-              <span>{p.text}</span>
-              <button
-                className="w-5 h-5 rounded-full border border-green-500 bg-green-500"
-                onClick={async () => {
-                  await toggleHighlight(p.id);
-                  loadData();
-                }}
-              />
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* MAIN NAV */}
-      <section>
-        <h2 className="font-semibold mb-3">Explore</h2>
-        <div className="grid grid-cols-3 gap-3">
-          <button
-            className="bg-white p-4 rounded-xl shadow-sm text-sm"
-            onClick={() => navigate("/my-journey")}
-          >
-            My Journey
-          </button>
-          <button
-            className="bg-white p-4 rounded-xl shadow-sm text-sm"
-            onClick={() => navigate("/my-habits")}
-          >
-            My Habits
-          </button>
-          <button
-            className="bg-white p-4 rounded-xl shadow-sm text-sm"
-            onClick={() => navigate("/my-story")}
-          >
-            My Story
-          </button>
-        </div>
-      </section>
-
+      </form>
     </main>
   );
 }

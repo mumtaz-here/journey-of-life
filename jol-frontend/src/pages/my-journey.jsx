@@ -1,6 +1,5 @@
 /**
- * Journey of Life — My Journey (User-Only Chat)
- * Write tab shows ONLY user's bubbles (no app reflections).
+ * Journey of Life — My Journey (User Writes Freely, AI Reflects Elsewhere)
  */
 
 import React, { useEffect, useRef, useState } from "react";
@@ -73,7 +72,6 @@ function WritePanel() {
   async function fetchEntries() {
     const res = await fetch(`${API}/entries`);
     const data = await res.json();
-    // oldest → newest
     data.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     setEntries(data);
   }
@@ -103,7 +101,7 @@ function WritePanel() {
     <section className={`${card} flex flex-col gap-4`}>
       <div className="flex justify-between items-center">
         <h2 className={heading}>Write</h2>
-        <p className={subtext}>Only your words here.</p>
+        <p className={subtext}>Only your words here — no AI reflections.</p>
       </div>
 
       {/* feed */}
@@ -144,6 +142,84 @@ function WritePanel() {
   );
 }
 
+/* ===============================
+   SUMMARY PANEL — AI REFLECTIONS
+   =============================== */
+function SummaryPanel() {
+  const [summary, setSummary] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function generateSummary() {
+    setLoading(true);
+    try {
+      const resEntries = await fetch(`${API}/entries`);
+      const entries = await resEntries.json();
+      const combinedText = entries.map((e) => e.text).join("\n");
+
+      const res = await fetch(`${API}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: `Summarize these reflections in a gentle, empathetic tone:\n${combinedText}`,
+        }),
+      });
+
+      const data = await res.json();
+      setSummary(data.reply);
+    } catch (e) {
+      setSummary("⚠️ Failed to fetch AI summary.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className={card}>
+      <div className="flex justify-between items-center">
+        <h2 className={heading}>Summary</h2>
+        <button
+          onClick={generateSummary}
+          disabled={loading}
+          className="px-4 py-2 rounded-xl bg-[#CBB9A8] text-white hover:bg-[#BCA691]"
+        >
+          {loading ? "Thinking…" : "Generate"}
+        </button>
+      </div>
+
+      {summary && (
+        <div className="mt-4 p-3 bg-[#FAF7F2] border rounded-xl whitespace-pre-wrap">
+          {summary}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ===============================
+   PROGRESS PANEL
+   =============================== */
+function ProgressPanel() {
+  return (
+    <section className={card}>
+      <p className={subtext}>Progress analysis will appear here later.</p>
+    </section>
+  );
+}
+
+/* ===============================
+   HIGHLIGHTS PANEL
+   =============================== */
+function HighlightsPanel() {
+  return (
+    <section className={card}>
+      <p className={subtext}>Highlights and key takeaways will appear here later.</p>
+    </section>
+  );
+}
+
+/* ===============================
+   USER BUBBLE
+   =============================== */
 function UserBubble({ data }) {
   return (
     <div className="flex justify-end">
@@ -154,33 +230,5 @@ function UserBubble({ data }) {
         </p>
       </div>
     </div>
-  );
-}
-
-/* ===============================
-   SUMMARY / PROGRESS / HIGHLIGHTS
-   (placeholders — analysis shown here later)
-   =============================== */
-function SummaryPanel() {
-  return (
-    <section className={card}>
-      <p className={subtext}>Summary appears here (no chat reflections in Write).</p>
-    </section>
-  );
-}
-
-function ProgressPanel() {
-  return (
-    <section className={card}>
-      <p className={subtext}>Progress appears here.</p>
-    </section>
-  );
-}
-
-function HighlightsPanel() {
-  return (
-    <section className={card}>
-      <p className={subtext}>Highlights appear here.</p>
-    </section>
   );
 }

@@ -1,5 +1,5 @@
 /**
- * Journey of Life — Backend Server (Final AI + Routes + CORS Integration)
+ * Journey of Life — Backend Server (FINAL STABLE)
  */
 
 import "dotenv/config";
@@ -12,8 +12,8 @@ import { createOpenAI } from "@ai-sdk/openai";
 
 // 📦 Import semua route
 import entriesRoute from "./routes/entries.js";
-import habitsRoute from "./routes/habits.js";
-import highlightsRoute from "./routes/highlights.js";
+import habitsRoute from "./routes/habits.js"; // ✅ TANPA initHabitsTable
+import highlightsRoute, { initHighlightsTable } from "./routes/highlights.js";
 import storyRoutes from "./routes/story.js";
 import prioritiesRoute, { initPrioritiesTable } from "./routes/priorities.js";
 
@@ -46,7 +46,8 @@ try {
   console.log("✅ Database terkoneksi");
 
   await initPrioritiesTable();
-  console.log("🧱 Priorities table siap digunakan");
+  await initHighlightsTable();
+  console.log("🧱 Semua tabel siap digunakan");
 } catch (err) {
   console.error("❌ Gagal konek database:", err.message);
 }

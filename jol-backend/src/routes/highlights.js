@@ -8,6 +8,7 @@ import {
   addHighlight,
   toggleHighlight,
   deleteHighlight,
+  initHighlightsTable,
 } from "../db/models/highlights.js";
 
 const router = express.Router();
@@ -55,4 +56,5 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+export { initHighlightsTable };
 export default router;
