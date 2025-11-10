@@ -1,89 +1,100 @@
 /**
- * Journey of Life — My Story (API connected, 3rd-person weekly narrative)
- * -----------------------------------------------------------------------
- * - Lists saved weekly stories (latest first)
- * - One-click "Generate this week" → calls /api/reflections/generate
- * - English-only copy
+ * Journey of Life — Page: My Story (daily diary view)
+ * ---------------------------------------------------
+ * - Shows one block per day
+ * - Uses factual summaries from backend (/summaries)
+ * - Calm, simple, not over-dramatic
  */
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { fetchSummaries as apiFetchSummaries } from "../utils/api";
 
-const API = "http://localhost:5000/api";
 const container =
-  "max-w-2xl mx-auto px-5 py-8 flex flex-col gap-8 text-[#2E2A26]";
+  "max-w-2xl mx-auto px-4 py-6 text-[#2E2A26] bg-[#FAF7F2] min-h-screen flex flex-col gap-4";
+const card =
+  "bg-white border border-[#E8E1DA] rounded-2xl shadow-sm";
+const sub = "text-sm opacity-70";
+
+/** Format: Thursday, 06 Nov 2025 */
+function formatFullDate(dateStr) {
+  try {
+    return new Date(dateStr).toLocaleDateString("en-GB", {
+      weekday: "long",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+}
 
 export default function MyStory() {
-  const [stories, setStories] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [days, setDays] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => { fetchStories(); }, []);
-
-  async function fetchStories() {
-    const res = await fetch(`${API}/reflections`);
-    const data = await res.json();
-    setStories(data); // already ordered desc by created_at
-  }
-
-  async function generateThisWeek() {
-    try {
-      setLoading(true);
-      await fetch(`${API}/reflections/generate`, { method: "POST" });
-      await fetchStories();
-    } finally {
-      setLoading(false);
-    }
-  }
+  // 🔁 Load daily summaries as "story base"
+  useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
+        const data = (await apiFetchSummaries()) || [];
+        // Urut dari terbaru ke lama (diary feel)
+        data.sort(
+          (a, b) => new Date(b.summary_date) - new Date(a.summary_date)
+        );
+        setDays(data);
+      } catch (err) {
+        console.error("❌ MyStory fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
   return (
     <main className={container}>
       {/* Header */}
-      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft animate-fadeIn">
-        <h2 className="text-xl font-semibold mb-2">My Story</h2>
-        <p className="text-[#7E7A74] text-sm leading-relaxed">
-          A weekly third-person narrative drawn from your real entries, plans, and habits.
+      <section className="p-5 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-sm">
+        <h1 className="text-xl font-semibold mb-1">My Story</h1>
+        <p className={sub}>
+          A calm daily diary based on what you actually wrote.
         </p>
       </section>
 
-      {/* Actions */}
-      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-lg font-semibold">Weekly Narrative</h3>
-          <button
-            onClick={generateThisWeek}
-            disabled={loading}
-            className={`px-4 py-2 rounded-xl text-sm text-white ${
-              loading ? "bg-[#CBB9A8]/50 cursor-not-allowed" : "bg-[#9EC3B0] hover:bg-[#86b7a0]"
-            }`}
-          >
-            {loading ? "Generating…" : "Generate this week"}
-          </button>
-        </div>
-        <p className="text-xs text-[#7E7A74] mt-1">
-          Stories reflect exactly what you wrote — in English — without judgment.
-        </p>
-      </section>
-
-      {/* Stories list */}
-      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft whitespace-pre-line">
-        {stories.length === 0 ? (
-          <p className="text-[#7E7A74] italic text-sm">No stories yet — write a little, then generate.</p>
-        ) : (
-          <ul className="space-y-4">
-            {stories.map((s) => (
-              <li key={s.id} className="p-4 rounded-xl bg-white border">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium">Week {s.week}</h4>
-                  <span className="text-xs text-[#7E7A74]">
-                    {new Date(s.created_at).toLocaleString()}
-                  </span>
-                </div>
-                <p className="text-sm leading-relaxed text-[#2E2A26]/90 mt-2">
-                  {s.narrative}
-                </p>
-              </li>
-            ))}
-          </ul>
+      {/* Story list */}
+      <section className="flex flex-col gap-4">
+        {loading && (
+          <div className={card + " p-4"}>
+            <p className="text-sm italic text-[#7E7A74]">
+              Loading your story…
+            </p>
+          </div>
         )}
+
+        {!loading && days.length === 0 && (
+          <div className={card + " p-4"}>
+            <p className="text-sm italic text-[#7E7A74]">
+              No story yet. Start by writing in your Home page.
+            </p>
+          </div>
+        )}
+
+        {!loading &&
+          days.map((d) => (
+            <article key={d.summary_date} className={card + " p-4"}>
+              {/* Date */}
+              <h2 className="text-base font-semibold mb-1">
+                {formatFullDate(d.summary_date)}
+              </h2>
+              <p className={sub}>Based on your reflections that day.</p>
+
+              {/* Text — simple, not lebay */}
+              <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap">
+                {d.summary_text}
+              </p>
+            </article>
+          ))}
       </section>
     </main>
   );

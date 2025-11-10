@@ -1,69 +1,85 @@
-const API_BASE = import.meta.env.VITE_API_URL || "https://journey-of-life-production.up.railway.app/api";
+// ✅ src/utils/api.js
+// ----------------------------------------------------
+// Handles all API requests for Journey of Life.
+// Automatically switches between localhost and production
+// based on the .env environment variable.
+// ----------------------------------------------------
 
+// Ambil base URL dari .env (frontend)
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  "https://journey-of-life-production.up.railway.app/api";
 
+// ✅ Helper untuk handle error dengan aman
+async function safeFetch(url, options = {}) {
+  try {
+    const res = await fetch(url, options);
+    if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.error("❌ API Error:", err.message);
+    return null;
+  }
+}
 
-// Entries
+// 🪶 ENTRIES ----------------------------------------------------
 export async function fetchEntries() {
-  const res = await fetch(`${API_BASE}/entries`);
-  return res.json();
+  return safeFetch(`${API_BASE_URL}/entries`);
 }
 
 export async function createEntry(text, analysis = null) {
-  const res = await fetch(`${API_BASE}/entries`, {
+  return safeFetch(`${API_BASE_URL}/entries`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text, analysis }),
   });
-  return res.json();
 }
 
-// Highlights
+// ✨ HIGHLIGHTS -------------------------------------------------
 export async function fetchHighlights() {
-  const res = await fetch(`${API_BASE}/highlights`);
-  return res.json();
+  return safeFetch(`${API_BASE_URL}/highlights`);
 }
 
 export async function createHighlight(text, planned_date = null) {
-  const res = await fetch(`${API_BASE}/highlights`, {
+  return safeFetch(`${API_BASE_URL}/highlights`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text, planned_date }),
   });
-  return res.json();
 }
 
 export async function toggleHighlight(id) {
-  const res = await fetch(`${API_BASE}/highlights/${id}/toggle`, {
+  return safeFetch(`${API_BASE_URL}/highlights/${id}/toggle`, {
     method: "PATCH",
   });
-  return res.json();
 }
 
 export async function deleteHighlight(id) {
-  const res = await fetch(`${API_BASE}/highlights/${id}`, {
+  return safeFetch(`${API_BASE_URL}/highlights/${id}`, {
     method: "DELETE",
   });
-  return res.json();
 }
 
-// Habits
+// 🌿 HABITS -----------------------------------------------------
 export async function fetchHabits() {
-  const res = await fetch(`${API_BASE}/habits`);
-  return res.json();
+  return safeFetch(`${API_BASE_URL}/habits`);
 }
 
 export async function addHabit(title) {
-  const res = await fetch(`${API_BASE}/habits`, {
+  return safeFetch(`${API_BASE_URL}/habits`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title }),
   });
-  return res.json();
 }
 
 export async function toggleHabit(id) {
-  const res = await fetch(`${API_BASE}/habits/${id}/toggle`, {
+  return safeFetch(`${API_BASE_URL}/habits/${id}/toggle`, {
     method: "PATCH",
   });
-  return res.json();
+}
+
+// 🧠 SUMMARIES --------------------------------------------------
+export async function fetchSummaries() {
+  return safeFetch(`${API_BASE_URL}/summaries`);
 }
