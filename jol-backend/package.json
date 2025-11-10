@@ -19,10 +19,11 @@
   "license": "MIT",
   "dependencies": {
     "@ai-sdk/openai": "^2.0.60",
-    "ai": "^5.0.86",
+    "ai": "^5.0.88",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
+    "node-fetch": "^3.3.2",
     "pg": "^8.11.3"
   },
   "devDependencies": {

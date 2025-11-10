@@ -1,57 +1,54 @@
 /**
- * Journey of Life — DB Model: Habits (FINAL MATCHING TABLE STRUCTURE)
+ * Journey of Life — Model: Habits (Fixed)
+ * ---------------------------------------
+ * Manages table creation and CRUD for habits.
  */
 
 import db from "../index.js";
 
-// 🔍 Ambil semua habit
-export async function getAll() {
-  const res = await db.query(
-    "SELECT id, title, streak, last_checked, created_at FROM habits ORDER BY id DESC"
-  );
-  return res.rows;
+// ✅ Create table
+export async function initHabitsTable() {
+  const query = `
+    CREATE TABLE IF NOT EXISTS habits (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      is_done BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+  await db.query(query);
+  console.log("🌿 Table 'habits' ready.");
 }
 
-// ➕ Tambah habit baru (default streak 0)
-export async function create(title) {
-  const res = await db.query(
-    `INSERT INTO habits (title, streak, last_checked)
-     VALUES ($1, 0, CURRENT_DATE)
-     RETURNING *`,
+// ✅ Get all
+export async function getAll() {
+  const result = await db.query("SELECT * FROM habits ORDER BY id ASC");
+  return result.rows;
+}
+
+// ✅ Add habit
+export async function addHabit(title) {
+  const result = await db.query(
+    "INSERT INTO habits (title) VALUES ($1) RETURNING *",
     [title]
   );
-  return res.rows[0];
+  return result.rows[0];
 }
 
-// 🔄 Toggle habit (update streak)
-export async function toggle(id) {
-  // Ambil data habit
-  const cur = await db.query("SELECT * FROM habits WHERE id=$1", [id]);
-  if (cur.rows.length === 0) return null;
-
-  const habit = cur.rows[0];
-  const today = new Date().toISOString().slice(0, 10);
-
-  let newStreak = habit.streak || 0;
-
-  // kalau belum dicentang hari ini, tambah streak
-  if (!habit.last_checked || habit.last_checked.toISOString().slice(0, 10) !== today) {
-    newStreak += 1;
-  }
-
-  // update habit
-  const res = await db.query(
+// ✅ Toggle habit done
+export async function toggleHabit(id) {
+  const result = await db.query(
     `UPDATE habits
-     SET streak=$1, last_checked=CURRENT_DATE
-     WHERE id=$2
+     SET is_done = NOT is_done
+     WHERE id = $1
      RETURNING *`,
-    [newStreak, id]
+    [id]
   );
-
-  return res.rows[0];
+  return result.rows[0];
 }
 
-// 🗑️ Hapus habit
-export async function remove(id) {
-  await db.query("DELETE FROM habits WHERE id=$1", [id]);
+// ✅ Delete habit
+export async function deleteHabit(id) {
+  await db.query("DELETE FROM habits WHERE id = $1", [id]);
+  return true;
 }

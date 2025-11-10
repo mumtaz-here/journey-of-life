@@ -1,18 +1,20 @@
 /**
- * Journey of Life — Route: Habits (FINAL FIX MATCHING TABLE)
+ * Journey of Life — Route: Habits (Full Fixed Version)
+ * ----------------------------------------------------
+ * Handles all CRUD routes for the Habits table.
  */
 
 import express from "express";
 import {
   getAll,
-  create,
-  toggle,
-  remove,
+  addHabit,
+  toggleHabit,
+  deleteHabit,
 } from "../db/models/habits.js";
 
 const router = express.Router();
 
-/** GET all */
+/** ✅ GET all habits */
 router.get("/", async (_req, res) => {
   try {
     const data = await getAll();
@@ -23,13 +25,13 @@ router.get("/", async (_req, res) => {
   }
 });
 
-/** POST create */
+/** ✅ POST create habit */
 router.post("/", async (req, res) => {
   try {
     const { title } = req.body;
     if (!title) return res.status(400).json({ error: "title required" });
 
-    const created = await create(title);
+    const created = await addHabit(title);
     res.json(created);
   } catch (err) {
     console.error("POST /habits error:", err.message);
@@ -37,10 +39,10 @@ router.post("/", async (req, res) => {
   }
 });
 
-/** PATCH toggle (update streak) */
+/** ✅ PATCH toggle habit */
 router.patch("/:id/toggle", async (req, res) => {
   try {
-    const updated = await toggle(req.params.id);
+    const updated = await toggleHabit(req.params.id);
     res.json(updated);
   } catch (err) {
     console.error("PATCH /habits/:id/toggle error:", err.message);
@@ -48,10 +50,10 @@ router.patch("/:id/toggle", async (req, res) => {
   }
 });
 
-/** DELETE */
+/** ✅ DELETE habit */
 router.delete("/:id", async (req, res) => {
   try {
-    await remove(req.params.id);
+    await deleteHabit(req.params.id);
     res.json({ message: "deleted" });
   } catch (err) {
     console.error("DELETE /habits/:id error:", err.message);
