@@ -1,101 +1,106 @@
 /**
- * Journey of Life — Page: My Story (daily diary view)
- * ---------------------------------------------------
- * - Shows one block per day
- * - Uses factual summaries from backend (/summaries)
- * - Calm, simple, not over-dramatic
+ * Journey of Life — Page: My Story (auto narrative ✅)
+ * ----------------------------------------------------
+ * - Auto-fetch stories from backend
+ * - Auto-generate this week's story if missing
+ * - Calm 3rd-person narrative tone
  */
 
 import { useEffect, useState } from "react";
-import { fetchSummaries as apiFetchSummaries } from "../utils/api";
 
+const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 const container =
-  "max-w-2xl mx-auto px-4 py-6 text-[#2E2A26] bg-[#FAF7F2] min-h-screen flex flex-col gap-4";
-const card =
-  "bg-white border border-[#E8E1DA] rounded-2xl shadow-sm";
-const sub = "text-sm opacity-70";
+  "max-w-2xl mx-auto px-5 py-8 flex flex-col gap-6 text-[#2E2A26] bg-[#FAF7F2] min-h-screen";
 
-/** Format: Thursday, 06 Nov 2025 */
-function formatFullDate(dateStr) {
-  try {
-    return new Date(dateStr).toLocaleDateString("en-GB", {
-      weekday: "long",
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return dateStr;
-  }
-}
-
+/* =========================================================
+   MAIN
+========================================================= */
 export default function MyStory() {
-  const [days, setDays] = useState([]);
+  const [stories, setStories] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔁 Load daily summaries as "story base"
   useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        const data = (await apiFetchSummaries()) || [];
-        // Urut dari terbaru ke lama (diary feel)
-        data.sort(
-          (a, b) => new Date(b.summary_date) - new Date(a.summary_date)
-        );
-        setDays(data);
-      } catch (err) {
-        console.error("❌ MyStory fetch error:", err);
-      } finally {
-        setLoading(false);
-      }
-    })();
+    fetchStories();
   }, []);
+
+  async function fetchStories() {
+    try {
+      const res = await fetch(`${API}/story`);
+      const data = await res.json();
+      setStories(data);
+
+      // ✅ auto-generate if this week's story is missing
+      const currentWeek = getIsoWeekKey();
+      const hasThisWeek = data.some((s) => s.week === currentWeek);
+
+      if (!hasThisWeek) {
+        console.log("🪶 Auto-generating this week's story...");
+        await fetch(`${API}/story/generate`, { method: "POST" });
+        const refresh = await fetch(`${API}/story`);
+        const newData = await refresh.json();
+        setStories(newData);
+      }
+    } catch (err) {
+      console.error("❌ Fetch stories error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <main className={container}>
-      {/* Header */}
-      <section className="p-5 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-sm">
-        <h1 className="text-xl font-semibold mb-1">My Story</h1>
-        <p className={sub}>
-          A calm daily diary based on what you actually wrote.
+      <header className="text-center">
+        <h1 className="text-xl font-semibold">My Story</h1>
+        <p className="text-sm text-[#7E7A74]">
+          Calm weekly reflections from your real entries.
         </p>
-      </section>
+      </header>
 
-      {/* Story list */}
       <section className="flex flex-col gap-4">
         {loading && (
-          <div className={card + " p-4"}>
-            <p className="text-sm italic text-[#7E7A74]">
-              Loading your story…
-            </p>
-          </div>
+          <p className="text-center italic text-[#8C7F78]">Loading stories…</p>
         )}
 
-        {!loading && days.length === 0 && (
-          <div className={card + " p-4"}>
-            <p className="text-sm italic text-[#7E7A74]">
-              No story yet. Start by writing in your Home page.
-            </p>
-          </div>
+        {!loading && stories.length === 0 && (
+          <p className="text-center italic text-[#8C7F78]">
+            No stories yet 🌿
+          </p>
         )}
 
-        {!loading &&
-          days.map((d) => (
-            <article key={d.summary_date} className={card + " p-4"}>
-              {/* Date */}
-              <h2 className="text-base font-semibold mb-1">
-                {formatFullDate(d.summary_date)}
-              </h2>
-              <p className={sub}>Based on your reflections that day.</p>
-
-              {/* Text — simple, not lebay */}
-              <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap">
-                {d.summary_text}
-              </p>
-            </article>
-          ))}
+        {stories.map((s) => (
+          <article
+            key={s.id}
+            className="bg-white border border-[#E8E1DA] rounded-2xl shadow-sm p-5 animate-fadeIn"
+          >
+            <div className="flex justify-between items-center mb-2">
+              <span className="font-medium text-[#2E2A26]">
+                Week {s.week}
+              </span>
+              <span className="text-xs text-[#7E7A74]">
+                {new Date(s.created_at).toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                })}
+              </span>
+            </div>
+            <p className="text-sm leading-relaxed text-[#2E2A26]/90 whitespace-pre-line">
+              {s.narrative}
+            </p>
+          </article>
+        ))}
       </section>
     </main>
   );
+}
+
+/* =========================================================
+   Helper — ISO Week Key
+========================================================= */
+function getIsoWeekKey(date = new Date()) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
 }
