@@ -1,16 +1,18 @@
 /**
- * Journey of Life — Route: Summaries (with Backfill Support)
- * ----------------------------------------------------------
+ * Journey of Life — Route: Summaries (AI SDK Backfill ✅)
+ * -------------------------------------------------------
  * Handles:
  * - GET /summaries → get all summaries
  * - POST /summaries/backfill → generate missing summaries from old entries
+ * Uses OpenRouter AI SDK instead of manual fetch.
  */
 
 import express from "express";
 import db from "../db/index.js";
 import { getAllSummaries, upsertSummary } from "../db/models/summaries.js";
 import { getAllEntries } from "../db/models/entries.js";
-import fetch from "node-fetch";
+import { openrouter } from "@ai-sdk/openrouter";
+import { generateText } from "ai";
 
 const router = express.Router();
 
@@ -25,7 +27,7 @@ router.get("/", async (_req, res) => {
   }
 });
 
-/** 🧠 POST /summaries/backfill → generate summaries for dates missing one */
+/** 🧠 POST /summaries/backfill → generate summaries for missing dates */
 router.post("/backfill", async (_req, res) => {
   try {
     console.log("🧩 Backfill summaries started...");
@@ -41,47 +43,39 @@ router.post("/backfill", async (_req, res) => {
 
     // Get existing summaries
     const existing = await getAllSummaries();
-    const existingDates = new Set(existing.map((s) => s.summary_date.toISOString().split("T")[0]));
+    const existingDates = new Set(
+      existing.map((s) => s.summary_date.toISOString().split("T")[0])
+    );
 
     const newSummaries = [];
+
     for (const [date, texts] of Object.entries(grouped)) {
       if (existingDates.has(date)) continue; // skip already summarized
 
       const combinedText = texts.join("\n");
       console.log(`✨ Generating summary for ${date}...`);
 
-      // Call OpenRouter API
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "http://localhost:5173",
-          "X-Title": "Journey of Life",
-        },
-        body: JSON.stringify({
-          model: "openai/gpt-3.5-turbo",
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a factual journaling summarizer. Summarize the user's daily reflections based on real facts only. Include: total entries, main feelings, activities, and main focus areas. Keep it short and structured with bullet points.",
-            },
-            {
-              role: "user",
-              content: combinedText,
-            },
-          ],
-        }),
+      // 🧠 Use AI SDK instead of fetch
+      const { text: summaryText } = await generateText({
+        model: openrouter("gpt-3.5-turbo"),
+        prompt: `
+You are a factual journaling summarizer.
+Summarize the user's daily reflections strictly based on facts from the text.
+Include:
+- Total number of entries
+- Main moods/feelings detected
+- Key activities or focus areas
+- General tone (productive, restful, social, etc.)
+
+Be objective, structured, and concise (use bullet points).
+
+Entries:
+${combinedText}
+        `,
       });
 
-      const data = await response.json();
-      const summaryText =
-        data?.choices?.[0]?.message?.content?.trim() ||
-        "⚠️ Failed to generate summary.";
-
-      // Save summary
-      const saved = await upsertSummary(date, summaryText);
+      // Save summary to DB
+      const saved = await upsertSummary(date, summaryText.trim());
       newSummaries.push(saved);
     }
 

@@ -1,10 +1,10 @@
 /**
- * Journey of Life — Route: Entries (FINAL AUTO SUMMARY ✅)
+ * Journey of Life — Route: Entries (FINAL AI SDK ✅)
  * --------------------------------------------------------
  * When a user writes:
  * 1️⃣ Saves the entry
  * 2️⃣ Collects all entries from today
- * 3️⃣ Sends them to OpenRouter AI (factual summary)
+ * 3️⃣ Sends them to OpenRouter AI SDK (factual summary)
  * 4️⃣ Saves/updates daily summary in 'summaries' table
  */
 
@@ -12,7 +12,10 @@ import express from "express";
 import { getAllEntries, addEntry } from "../db/models/entries.js";
 import { upsertSummary } from "../db/models/summaries.js";
 import { extractPlans } from "../utils/intent-parser.js";
-import fetch from "node-fetch";
+
+// 🌿 AI SDK imports
+import { openrouter } from "@ai-sdk/openrouter";
+import { generateText } from "ai";
 
 const router = express.Router();
 
@@ -49,43 +52,24 @@ router.post("/", async (req, res) => {
       .map((e) => e.text)
       .join("\n");
 
-    // 3️⃣ Generate factual summary via OpenRouter AI
-    const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-3.5-turbo",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a factual daily summarizer. Only return real, objective bullet points. Include total messages count, detected moods, main activities, and general productivity level. Keep it short and factual.",
-          },
-          {
-            role: "user",
-            content: todaysTexts,
-          },
-        ],
-      }),
+    // 3️⃣ Generate factual summary via AI SDK
+    const { text: summaryText } = await generateText({
+      model: openrouter("gpt-3.5-turbo"),
+      prompt: `
+You are a factual journaling summarizer.
+Summarize the user's daily reflections based on *real facts only*.
+Include: total messages, overall mood (if mentioned),
+main activities, and key focus areas.
+Output short bullet points only.
+
+${todaysTexts}
+      `,
     });
-
-    if (!aiResponse.ok) {
-      console.error("❌ AI request failed:", await aiResponse.text());
-      throw new Error("AI response not OK");
-    }
-
-    const aiData = await aiResponse.json();
-    const summaryText =
-      aiData?.choices?.[0]?.message?.content?.trim() ||
-      "⚠️ Could not generate summary.";
 
     // 4️⃣ Save or update today's summary
     await upsertSummary(today, summaryText);
 
-    // Extract user "plans" (if any)
+    // Extract any detected "plans"
     const plans = extractPlans(text);
 
     res.json({
