@@ -1,55 +1,45 @@
 /**
- * Journey of Life — Route: Chat (OpenRouter Integration, FINAL FIX)
+ * Journey of Life — Route: Chat (AI SDK Integration ✅)
  * -----------------------------------------------------
- * Handles AI reflections using OpenRouter API with proper headers.
- * Calm, simple, and human-friendly summary generation.
+ * Menggunakan OpenRouter Provider via ai-sdk.
+ * Simpel, tenang, dan ramah untuk journaling refleksi.
  */
 
 import express from "express";
-import fetch from "node-fetch";
 import "dotenv/config";
+import { generateText } from "ai";
+import { createOpenRouter } from "@ai-sdk/openrouter";
 
 const router = express.Router();
 
+// 🔑 Setup provider OpenRouter
+const openrouter = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
+  headers: {
+    "HTTP-Referer": "http://localhost:5173", // wajib
+    "X-Title": "Journey of Life", // wajib
+  },
+});
+
 router.post("/", async (req, res) => {
   const { message } = req.body;
+
   if (!message?.trim()) {
     return res.status(400).json({ error: "message required" });
   }
 
   try {
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-        // 🧩 wajib ditambah header ini biar OpenRouter terima request-nya
-        "HTTP-Referer": "http://localhost:5173", 
-        "X-Title": "Journey of Life",
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-3.5-turbo", // model gratis yang aman
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a calm, empathetic journaling assistant. Summarize the user's reflections kindly and clearly in one short paragraph.",
-          },
-          {
-            role: "user",
-            content: message,
-          },
-        ],
-      }),
+    // ✨ Generate AI text
+    const { text } = await generateText({
+      model: openrouter("openai/gpt-3.5-turbo"), // model gratis
+      system:
+        "You are a calm, empathetic journaling assistant. Summarize the user's reflections kindly and clearly in one short paragraph.",
+      prompt: message,
     });
 
-    const data = await response.json();
-    console.log("🧠 OpenRouter Response:", JSON.stringify(data, null, 2));
-
-    const reply = data?.choices?.[0]?.message?.content?.trim() || "⚠️ No AI reply received.";
-    res.json({ reply });
+    res.json({ reply: text.trim() });
   } catch (err) {
-    console.error("❌ OpenRouter error:", err.message);
+    console.error("❌ AI SDK error:", err.message);
     res.status(500).json({ error: "AI request failed" });
   }
 });

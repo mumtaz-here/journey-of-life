@@ -14,10 +14,20 @@ import { upsertSummary } from "../db/models/summaries.js";
 import { extractPlans } from "../utils/intent-parser.js";
 
 // 🌿 AI SDK imports
-import { openrouter } from "@ai-sdk/openrouter";
 import { generateText } from "ai";
+import { createOpenRouter } from "@ai-sdk/openrouter";
+import "dotenv/config";
 
 const router = express.Router();
+
+// 🔑 Init provider
+const openrouter = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
+  headers: {
+    "HTTP-Referer": "http://localhost:5173",
+    "X-Title": "Journey of Life",
+  },
+});
 
 /* Helper: get date key (YYYY-MM-DD) */
 function getDateKey(date = new Date()) {
@@ -54,16 +64,10 @@ router.post("/", async (req, res) => {
 
     // 3️⃣ Generate factual summary via AI SDK
     const { text: summaryText } = await generateText({
-      model: openrouter("gpt-3.5-turbo"),
-      prompt: `
-You are a factual journaling summarizer.
-Summarize the user's daily reflections based on *real facts only*.
-Include: total messages, overall mood (if mentioned),
-main activities, and key focus areas.
-Output short bullet points only.
-
-${todaysTexts}
-      `,
+      model: openrouter("openai/gpt-3.5-turbo"),
+      system:
+        "You are a factual journaling summarizer. Summarize the user's daily reflections based on *real facts only*. Include: total messages, overall mood (if mentioned), main activities, and key focus areas. Output short bullet points only.",
+      prompt: todaysTexts,
     });
 
     // 4️⃣ Save or update today's summary
