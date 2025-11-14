@@ -1,34 +1,47 @@
 /**
- * Journey of Life — My Story (API connected, 3rd-person weekly narrative)
- * -----------------------------------------------------------------------
- * - Lists saved weekly stories (latest first)
- * - One-click "Generate this week" → calls /api/reflections/generate
- * - English-only copy
+ * Journey of Life — Page: My Story (auto narrative ✅)
+ * ----------------------------------------------------
+ * - Auto-fetch stories from backend
+ * - Auto-generate this week's story if missing
+ * - Calm 3rd-person narrative tone
  */
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
-const API = "http://localhost:5000/api";
+const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 const container =
-  "max-w-2xl mx-auto px-5 py-8 flex flex-col gap-8 text-[#2E2A26]";
+  "max-w-2xl mx-auto px-5 py-8 flex flex-col gap-6 text-[#2E2A26] bg-[#FAF7F2] min-h-screen";
 
+/* =========================================================
+   MAIN
+========================================================= */
 export default function MyStory() {
   const [stories, setStories] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => { fetchStories(); }, []);
+  useEffect(() => {
+    fetchStories();
+  }, []);
 
   async function fetchStories() {
-    const res = await fetch(`${API}/reflections`);
-    const data = await res.json();
-    setStories(data); // already ordered desc by created_at
-  }
-
-  async function generateThisWeek() {
     try {
-      setLoading(true);
-      await fetch(`${API}/reflections/generate`, { method: "POST" });
-      await fetchStories();
+      const res = await fetch(`${API}/story`);
+      const data = await res.json();
+      setStories(data);
+
+      // ✅ auto-generate if this week's story is missing
+      const currentWeek = getIsoWeekKey();
+      const hasThisWeek = data.some((s) => s.week === currentWeek);
+
+      if (!hasThisWeek) {
+        console.log("🪶 Auto-generating this week's story...");
+        await fetch(`${API}/story/generate`, { method: "POST" });
+        const refresh = await fetch(`${API}/story`);
+        const newData = await refresh.json();
+        setStories(newData);
+      }
+    } catch (err) {
+      console.error("❌ Fetch stories error:", err);
     } finally {
       setLoading(false);
     }
@@ -36,55 +49,58 @@ export default function MyStory() {
 
   return (
     <main className={container}>
-      {/* Header */}
-      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft animate-fadeIn">
-        <h2 className="text-xl font-semibold mb-2">My Story</h2>
-        <p className="text-[#7E7A74] text-sm leading-relaxed">
-          A weekly third-person narrative drawn from your real entries, plans, and habits.
+      <header className="text-center">
+        <h1 className="text-xl font-semibold">My Story</h1>
+        <p className="text-sm text-[#7E7A74]">
+          Calm weekly reflections from your real entries.
         </p>
-      </section>
+      </header>
 
-      {/* Actions */}
-      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-lg font-semibold">Weekly Narrative</h3>
-          <button
-            onClick={generateThisWeek}
-            disabled={loading}
-            className={`px-4 py-2 rounded-xl text-sm text-white ${
-              loading ? "bg-[#CBB9A8]/50 cursor-not-allowed" : "bg-[#9EC3B0] hover:bg-[#86b7a0]"
-            }`}
-          >
-            {loading ? "Generating…" : "Generate this week"}
-          </button>
-        </div>
-        <p className="text-xs text-[#7E7A74] mt-1">
-          Stories reflect exactly what you wrote — in English — without judgment.
-        </p>
-      </section>
-
-      {/* Stories list */}
-      <section className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1DA] shadow-soft whitespace-pre-line">
-        {stories.length === 0 ? (
-          <p className="text-[#7E7A74] italic text-sm">No stories yet — write a little, then generate.</p>
-        ) : (
-          <ul className="space-y-4">
-            {stories.map((s) => (
-              <li key={s.id} className="p-4 rounded-xl bg-white border">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium">Week {s.week}</h4>
-                  <span className="text-xs text-[#7E7A74]">
-                    {new Date(s.created_at).toLocaleString()}
-                  </span>
-                </div>
-                <p className="text-sm leading-relaxed text-[#2E2A26]/90 mt-2">
-                  {s.narrative}
-                </p>
-              </li>
-            ))}
-          </ul>
+      <section className="flex flex-col gap-4">
+        {loading && (
+          <p className="text-center italic text-[#8C7F78]">Loading stories…</p>
         )}
+
+        {!loading && stories.length === 0 && (
+          <p className="text-center italic text-[#8C7F78]">
+            No stories yet 🌿
+          </p>
+        )}
+
+        {stories.map((s) => (
+          <article
+            key={s.id}
+            className="bg-white border border-[#E8E1DA] rounded-2xl shadow-sm p-5 animate-fadeIn"
+          >
+            <div className="flex justify-between items-center mb-2">
+              <span className="font-medium text-[#2E2A26]">
+                Week {s.week}
+              </span>
+              <span className="text-xs text-[#7E7A74]">
+                {new Date(s.created_at).toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                })}
+              </span>
+            </div>
+            <p className="text-sm leading-relaxed text-[#2E2A26]/90 whitespace-pre-line">
+              {s.narrative}
+            </p>
+          </article>
+        ))}
       </section>
     </main>
   );
+}
+
+/* =========================================================
+   Helper — ISO Week Key
+========================================================= */
+function getIsoWeekKey(date = new Date()) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
 }
