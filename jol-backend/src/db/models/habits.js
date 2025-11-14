@@ -1,54 +1,107 @@
 /**
- * Journey of Life — Model: Habits (Fixed)
- * ---------------------------------------
- * Manages table creation and CRUD for habits.
+ * Journey of Life — Model: Habits (FINAL FIXED)
  */
 
 import db from "../index.js";
 
-// ✅ Create table
+// CREATE TABLE
 export async function initHabitsTable() {
-  const query = `
+  await db.query(`
     CREATE TABLE IF NOT EXISTS habits (
       id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,
-      is_done BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
-  `;
-  await db.query(query);
+  `);
   console.log("🌿 Table 'habits' ready.");
 }
 
-// ✅ Get all
-export async function getAll() {
-  const result = await db.query("SELECT * FROM habits ORDER BY id ASC");
-  return result.rows;
+// Convert date → YYYY-MM-DD
+function toKey(d) {
+  return new Date(d).toISOString().split("T")[0];
 }
 
-// ✅ Add habit
+/* --------------------------------------------------------
+   GET ALL HABITS + TODAY STATUS + STREAK
+   🔥 FIXED:
+   - log_date::text for all comparisons
+   -------------------------------------------------------- */
+export async function getHabitsWithTodayStatus(todayKey) {
+  const habitsRes = await db.query(`SELECT * FROM habits ORDER BY id ASC`);
+  const habits = habitsRes.rows;
+
+  if (habits.length === 0) return [];
+
+  // ⭐ FIX: log_date::text <= $1
+  const logsRes = await db.query(
+    `
+      SELECT habit_id, log_date, status
+      FROM habit_logs
+      WHERE log_date::text <= $1
+    `,
+    [todayKey]
+  );
+
+  const byHabit = new Map();
+  for (const log of logsRes.rows) {
+    if (!byHabit.has(log.habit_id)) byHabit.set(log.habit_id, []);
+    byHabit.get(log.habit_id).push(log);
+  }
+
+  function computeStreak(id) {
+    const logs = byHabit.get(id) || [];
+    const doneDates = new Set(
+      logs
+        .filter(l => l.status === "done")
+        .map(l => toKey(l.log_date))
+    );
+
+    let streak = 0;
+    let cursor = new Date(todayKey);
+
+    for (let i = 0; i < 365; i++) {
+      const k = toKey(cursor);
+      if (doneDates.has(k)) {
+        streak++;
+        cursor.setDate(cursor.getDate() - 1);
+      } else break;
+    }
+    return streak;
+  }
+
+  return habits.map(h => {
+    const logs = byHabit.get(h.id) || [];
+    const doneToday = logs.some(
+      l => toKey(l.log_date) === todayKey && l.status === "done"
+    );
+
+    return {
+      ...h,
+      today_done: doneToday,
+      streak: computeStreak(h.id),
+    };
+  });
+}
+
+export async function getHabitWithTodayStatus(id, todayKey) {
+  const list = await getHabitsWithTodayStatus(todayKey);
+  return list.find(h => h.id === Number(id)) || null;
+}
+
 export async function addHabit(title) {
-  const result = await db.query(
-    "INSERT INTO habits (title) VALUES ($1) RETURNING *",
+  const res = await db.query(
+    `INSERT INTO habits (title) VALUES ($1) RETURNING *`,
     [title]
   );
-  return result.rows[0];
+
+  return {
+    ...res.rows[0],
+    today_done: false,
+    streak: 0,
+  };
 }
 
-// ✅ Toggle habit done
-export async function toggleHabit(id) {
-  const result = await db.query(
-    `UPDATE habits
-     SET is_done = NOT is_done
-     WHERE id = $1
-     RETURNING *`,
-    [id]
-  );
-  return result.rows[0];
-}
-
-// ✅ Delete habit
 export async function deleteHabit(id) {
-  await db.query("DELETE FROM habits WHERE id = $1", [id]);
+  await db.query(`DELETE FROM habits WHERE id = $1`, [id]);
   return true;
 }

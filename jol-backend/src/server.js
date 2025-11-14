@@ -1,7 +1,8 @@
 /**
- * Journey of Life — Backend Server (Full Fixed Stable)
- * ----------------------------------------------------
- * Handles API routes, DB init, and AI integration.
+ * Journey of Life — Backend Server (FINAL kebab-case version)
+ * ----------------------------------------------------------
+ * This version uses:
+ *   habit-logs.js   ← kebab-case
  */
 
 import express from "express";
@@ -16,10 +17,11 @@ import habitsRoute from "./routes/habits.js";
 import summariesRoute from "./routes/summaries.js";
 import chatRoute from "./routes/chat.js";
 
-// 🧱 Table initializers (correct imports from models)
+// 🧱 Table initializers
 import { initEntriesTable } from "./db/models/entries.js";
 import { initHighlightsTable } from "./db/models/highlights.js";
 import { initHabitsTable } from "./db/models/habits.js";
+import { initHabitLogsTable } from "./db/models/habit-logs.js";
 import { initSummariesTable } from "./db/models/summaries.js";
 
 dotenv.config();
@@ -35,7 +37,7 @@ app.get("/", (_req, res) => {
   res.send("🌿 Journey of Life API is running smoothly.");
 });
 
-// 🧩 Routes
+// 🧩 API routes
 app.use("/api/entries", entriesRoute);
 app.use("/api/highlights", highlightsRoute);
 app.use("/api/habits", habitsRoute);
@@ -52,9 +54,10 @@ app.listen(PORT, async () => {
     await initEntriesTable();
     await initHighlightsTable();
     await initHabitsTable();
+    await initHabitLogsTable(); // ⭐ kebab-case file
     await initSummariesTable();
 
-    console.log("🧱 All tables are ready");
+    console.log("🧱 All tables are fully ready.");
     console.log(`🚀 Server running at http://localhost:${PORT}`);
   } catch (err) {
     console.error("❌ Server init error:", err);
