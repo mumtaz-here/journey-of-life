@@ -1,8 +1,5 @@
 /**
- * Journey of Life — Backend Server (FINAL kebab-case version)
- * ----------------------------------------------------------
- * This version uses:
- *   habit-logs.js   ← kebab-case
+ * Journey of Life — Backend Server (FINAL FIXED ✓ + STORY ROUTE ADDED)
  */
 
 import express from "express";
@@ -16,6 +13,7 @@ import highlightsRoute from "./routes/highlights.js";
 import habitsRoute from "./routes/habits.js";
 import summariesRoute from "./routes/summaries.js";
 import chatRoute from "./routes/chat.js";
+import storyRoute from "./routes/story.js";   // ⭐ ADDED
 
 // 🧱 Table initializers
 import { initEntriesTable } from "./db/models/entries.js";
@@ -43,6 +41,7 @@ app.use("/api/highlights", highlightsRoute);
 app.use("/api/habits", habitsRoute);
 app.use("/api/summaries", summariesRoute);
 app.use("/api/chat", chatRoute);
+app.use("/api/story", storyRoute);   // ⭐ ADDED (FIX)
 
 // 🚀 Start server
 app.listen(PORT, async () => {
@@ -54,7 +53,7 @@ app.listen(PORT, async () => {
     await initEntriesTable();
     await initHighlightsTable();
     await initHabitsTable();
-    await initHabitLogsTable(); // ⭐ kebab-case file
+    await initHabitLogsTable();
     await initSummariesTable();
 
     console.log("🧱 All tables are fully ready.");

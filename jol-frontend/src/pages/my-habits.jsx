@@ -1,10 +1,5 @@
 /**
  * Journey of Life — Page: My Habits (Playful Deep Pastel)
- * -------------------------------------------------------
- * - User can add habits
- * - Tap to mark today's completion
- * - Auto-log to Home as a chat bubble when checked
- * - Shows simple streak per habit (consecutive days)
  */
 
 import { useEffect, useState } from "react";
@@ -14,6 +9,7 @@ import {
   toggleHabit,
   deleteHabit,
   createEntry,
+  deleteEntryByText,    // ← NEW
 } from "../utils/api";
 
 const container =
@@ -49,15 +45,21 @@ export default function MyHabits() {
 
   // toggle today's completion
   async function handleToggle(habit) {
-    const wasDone = habit.today_done; // sebelum toggle
+    const wasDone = habit.today_done;
     setTogglingId(habit.id);
+
     await toggleHabit(habit.id);
     await load();
     setTogglingId(null);
 
-    // auto-log ke Home hanya ketika baru selesai (false → true)
+    // ✔ add bubble when checking
     if (!wasDone) {
       await createEntry(`(habit) Completed: ${habit.title}`);
+    }
+
+    // ✔ remove bubble when unchecking
+    if (wasDone) {
+      await deleteEntryByText(`(habit) Completed: ${habit.title}`);
     }
   }
 
@@ -87,16 +89,16 @@ export default function MyHabits() {
           <input
             value={newHabit}
             onChange={(e) => setNewHabit(e.target.value)}
-            placeholder="Add a new habit (e.g. morning skincare, reading)…"
-            className="flex-1 p-3 rounded-xl bg-[#FFFBF4] border border-[#E8E1DA] text-sm focus:outline-none focus:ring-2 focus:ring-[#D8C2AE]/40"
+            placeholder="Add a new habit…"
+            className="flex-1 p-3 rounded-xl bg-[#FFFBF4] border border-[#E8E1DA] text-sm"
           />
           <button
             type="submit"
             disabled={adding}
-            className={`px-4 py-2 rounded-xl text-sm font-medium text-white transition transform ${
+            className={`px-4 py-2 rounded-xl text-sm font-medium text-white transition ${
               adding
                 ? "bg-[#CBB9A8]/40 cursor-wait"
-                : "bg-[#9EC3B0] hover:bg-[#86b7a0] active:scale-95"
+                : "bg-[#9EC3B0] hover:bg-[#86b7a0]"
             }`}
           >
             {adding ? "Adding…" : "Add"}
@@ -108,37 +110,35 @@ export default function MyHabits() {
       <section className="bg-white border border-[#E8E1DA] rounded-2xl p-5 shadow-sm flex flex-col gap-3">
         {habits.length === 0 ? (
           <p className="text-sm text-[#7E7A74] italic">
-            No habits yet. Start with one small thing that matters to you.
+            No habits yet.
           </p>
         ) : (
           habits.map((h) => {
             const isToggling = togglingId === h.id;
             const isDeleting = deletingId === h.id;
             const streakLabel =
-              h.streak && h.streak > 0
+              h.streak > 0
                 ? `${h.streak} day${h.streak > 1 ? "s" : ""} in a row`
                 : "No streak yet";
 
             return (
               <div
                 key={h.id}
-                className="flex items-center gap-3 px-3 py-2 rounded-2xl border border-[#EFE3D6] bg-[#FFF8EE] hover:bg-[#F9EEDC] transition"
+                className="flex items-center gap-3 px-3 py-2 rounded-2xl border bg-[#FFF8EE] hover:bg-[#F9EEDC]"
               >
-                {/* checkbox */}
                 <button
                   type="button"
                   onClick={() => handleToggle(h)}
                   disabled={isToggling}
-                  className={`w-7 h-7 rounded-xl border flex items-center justify-center text-sm font-semibold transition transform ${
+                  className={`w-7 h-7 rounded-xl border flex items-center justify-center ${
                     h.today_done
-                      ? "bg-[#9EC3B0] border-[#7FAE97] text-white shadow-sm"
+                      ? "bg-[#9EC3B0] border-[#7FAE97] text-white"
                       : "bg-white border-[#D8C2AE] text-transparent"
-                  } ${isToggling ? "opacity-60 cursor-wait" : "active:scale-95"}`}
+                  }`}
                 >
                   ✓
                 </button>
 
-                {/* title + streak */}
                 <div className="flex-1 flex flex-col min-w-0">
                   <span
                     className={`text-sm truncate ${
@@ -147,21 +147,14 @@ export default function MyHabits() {
                   >
                     {h.title}
                   </span>
-                  <span className="text-[11px] text-[#A09184]">
-                    🔥 {streakLabel}
-                  </span>
+                  <span className="text-[11px] text-[#A09184]">🔥 {streakLabel}</span>
                 </div>
 
-                {/* delete */}
                 <button
                   type="button"
                   onClick={() => handleDelete(h)}
                   disabled={isDeleting}
-                  className={`text-[11px] px-2 py-1 rounded-full border transition ${
-                    isDeleting
-                      ? "border-[#D4B0A8]/60 text-[#B08A82]/60 cursor-wait"
-                      : "border-[#D4B0A8] text-[#A06767] hover:bg-[#FBE9E7]"
-                  }`}
+                  className="text-[11px] px-2 py-1 rounded-full border border-[#D4B0A8]"
                 >
                   {isDeleting ? "…" : "delete"}
                 </button>

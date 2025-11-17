@@ -1,4 +1,4 @@
-// ✅ src/utils/api.js (FINAL LOCAL VERSION)
+// ✅ src/utils/api.js (FINAL LOCAL VERSION FIXED)
 // ----------------------------------------------------
 // Routes ke backend lokal (http://localhost:5000/api)
 // ----------------------------------------------------
@@ -31,6 +31,14 @@ export async function createEntry(text, analysis = null) {
   return safeFetch(`${API_BASE_URL}/entries`, {
     method: "POST",
     body: JSON.stringify({ text, analysis }),
+  });
+}
+
+// DELETE entry when unchecking habit
+export async function deleteEntryByText(text) {
+  return safeFetch(`${API_BASE_URL}/entries/by-text`, {
+    method: "DELETE",
+    body: JSON.stringify({ text }),
   });
 }
 

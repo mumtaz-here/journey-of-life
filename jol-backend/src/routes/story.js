@@ -1,47 +1,111 @@
 /**
- * Journey of Life — Route: Story (AI SDK 3rd-person narrative + Backfill ✅)
- * ----------------------------------------------------------------
- * - GET /story → fetch all stories
- * - POST /story/generate → generate this week
- * - POST /story/backfill → generate stories for past weeks
+ * Journey of Life — Route: Daily Story + Range Filter
+ * ---------------------------------------------------
+ * - GET /story                → semua story (terbaru di atas)
+ * - GET /story?from=&to=      → story dalam rentang tanggal
+ * - POST /story/generate      → refresh story HARI INI
+ * - POST /story/backfill      → generate story untuk semua hari yang punya entry
  */
 
 import express from "express";
 import pool from "../db/index.js";
 import storyModel from "../db/models/story.js";
-import { openrouter } from "@ai-sdk/openrouter";
 import { generateText } from "ai";
+import { createOpenRouter } from "@ai-sdk/openrouter";
+import "dotenv/config";
 
 const router = express.Router();
 
-/* 📅 Helper: ISO week key */
-function getIsoWeekKey(date = new Date()) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
-  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
-}
+/* 🌿 OpenRouter client */
+const openrouter = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
+  headers: {
+    "HTTP-Referer": "http://localhost:5173",
+    "X-Title": "Journey of Life",
+  },
+});
 
-/* 📆 Get start & end of the current week */
-function getWeekRange(date = new Date()) {
+/* 📅 Helper: YYYY-MM-DD (lokal) */
+function getDateKey(date = new Date()) {
   const d = new Date(date);
-  const day = d.getDay() || 7;
-  const start = new Date(d);
-  start.setDate(d.getDate() - (day - 1));
-  start.setHours(0, 0, 0, 0);
-
-  const end = new Date(start);
-  end.setDate(start.getDate() + 6);
-  end.setHours(23, 59, 59, 999);
-
-  return { start, end };
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().split("T")[0];
 }
 
-/* ✅ GET all stories */
-router.get("/", async (_req, res) => {
+/* 🎯 Helper: generate / update daily story untuk 1 hari */
+async function generateDailyStoryForDay(dayKey, entriesForDay) {
+  const total = entriesForDay.length;
+  const texts = total
+    ? entriesForDay.map((e) => e.text).join("\n")
+    : "(Tidak ada teks eksplisit hari ini.)";
+
+  const existing = await storyModel.getByDay(dayKey);
+  const hasExisting = !!existing;
+
+  const mode =
+    total < 3
+      ? "rewrite_total"
+      : "merge_with_existing_non_dramatic";
+
+  const existingBlock = hasExisting ? existing.narrative : "(belum ada)";
+
+  const { text: narrative } = await generateText({
+    model: openrouter("openai/gpt-3.5-turbo"),
+    system: `
+Kamu penulis narasi harian yang factual dan tenang.
+
+Aturan:
+- Bahasa Indonesia.
+- Sudut pandang orang ketiga: sebut nama "Mumtaz" lalu "ia".
+- Jangan mengarang fakta/emosi/penilaian yang tidak tertulis.
+- Hindari kata "ringan", "berat", "tanpa beban", dll kecuali jelas ada di teks.
+- Hindari gaya puitis/dramatis.
+
+Mode:
+- "rewrite_total": tulis narasi baru singkat (1–3 kalimat) hanya dari entries hari itu.
+- "merge_with_existing_non_dramatic":
+   pakai existing story sebagai dasar, lalu tulis ulang versi ringkas
+   yang tetap membawa inti cerita lama + info baru dari entries,
+   jadi satu paragraf utuh (bukan bullet).
+    `,
+    prompt: `
+Hari: ${dayKey}
+Mode: ${mode}
+
+Existing story (boleh dipadatkan, jangan didramatisir):
+${existingBlock}
+
+Entries hari itu (${total} buah):
+${texts}
+
+Tulis SATU narasi pendek yang utuh untuk hari ini.
+    `,
+  });
+
+  const saved = await storyModel.save(dayKey, narrative.trim());
+  return saved;
+}
+
+/* ========================================================
+   GET — semua daily story / range-filter
+======================================================== */
+router.get("/", async (req, res) => {
   try {
+    const { from, to } = req.query;
+
+    // kalau ada from & to → filter rentang
+    if (from && to) {
+      const rows = await storyModel.getRange(from, to);
+      return res.json(rows);
+    }
+
+    // kalau cuma from → anggap to = from
+    if (from && !to) {
+      const rows = await storyModel.getRange(from, from);
+      return res.json(rows);
+    }
+
+    // default: semua story
     const rows = await storyModel.getAll();
     res.json(rows);
   } catch (err) {
@@ -50,110 +114,68 @@ router.get("/", async (_req, res) => {
   }
 });
 
-/* 🧠 POST /story/generate → AI writes a 3rd-person story for this week */
+/* ========================================================
+   POST /story/generate — refresh story HARI INI
+======================================================== */
 router.post("/generate", async (_req, res) => {
   try {
-    const weekKey = getIsoWeekKey();
-    const { start, end } = getWeekRange();
+    const dayKey = getDateKey();
 
-    // 📜 Gather entries from this week
     const entriesQ = await pool.query(
-      `SELECT id, text, analysis, created_at
-       FROM entries
-       WHERE created_at BETWEEN $1 AND $2
-       ORDER BY created_at ASC`,
-      [start, end]
-    );
-    const entries = entriesQ.rows;
-
-    if (!entries.length) {
-      return res.status(400).json({ error: "No entries found for this week." });
-    }
-
-    // 🧩 Prepare text for AI
-    const total = entries.length;
-    const texts = entries.map((e) => e.text).join("\n");
-
-    // 💬 Generate narrative
-    const { text: narrative } = await generateText({
-      model: openrouter("gpt-3.5-turbo"),
-      prompt: `
-You are an empathetic storyteller.
-Write a warm, simple, and honest weekly reflection about the user
-in third-person perspective (use "they" or "the person").
-
-Tone: calm, grounded, and narrative — not motivational.
-Focus only on facts and emotions shown in their journal entries.
-
-Include:
-- what kind of week it was overall
-- small highlights or struggles
-- recurring moods or thoughts
-- a gentle closing line that feels grounded and complete
-
-Entries this week (${total} total):
-${texts}
+      `
+      SELECT id, text, analysis, created_at
+      FROM entries
+      WHERE created_at::date = $1::date
+      ORDER BY created_at ASC
       `,
-    });
+      [dayKey]
+    );
+    const entriesForDay = entriesQ.rows;
 
-    const saved = await storyModel.save(weekKey, narrative.trim());
-
-    res.json({
-      id: saved.id,
-      week: saved.week,
-      narrative: saved.narrative,
-    });
+    const saved = await generateDailyStoryForDay(dayKey, entriesForDay);
+    res.json(saved);
   } catch (err) {
     console.error("POST /story/generate error:", err);
-    res.status(500).json({ error: "Failed to generate weekly story" });
+    res.status(500).json({ error: "Failed to generate daily story" });
   }
 });
 
-/* 🧩 POST /story/backfill → generate stories for past weeks */
+/* ========================================================
+   POST /story/backfill — generate story untuk semua hari
+   yang punya entries tapi belum ada narasi
+======================================================== */
 router.post("/backfill", async (_req, res) => {
   try {
-    console.log("🧩 Story backfill started...");
     const entriesQ = await pool.query(
-      `SELECT id, text, analysis, created_at FROM entries ORDER BY created_at ASC`
+      `
+      SELECT id, text, analysis, created_at
+      FROM entries
+      ORDER BY created_at ASC
+      `
     );
-    const entries = entriesQ.rows;
+    const allEntries = entriesQ.rows;
 
-    // Kelompokkan per minggu
-    const grouped = entries.reduce((acc, e) => {
-      const weekKey = getIsoWeekKey(new Date(e.created_at));
-      acc[weekKey] = acc[weekKey] || [];
-      acc[weekKey].push(e.text);
+    // group by dayKey
+    const grouped = allEntries.reduce((acc, e) => {
+      const dayKey = getDateKey(e.created_at);
+      acc[dayKey] = acc[dayKey] || [];
+      acc[dayKey].push(e);
       return acc;
     }, {});
 
-    // Ambil story yang sudah ada
     const existing = await storyModel.getAll();
-    const existingWeeks = new Set(existing.map((s) => s.week));
+    const existingDays = new Set(existing.map((s) => s.week));
 
-    const newStories = [];
-    for (const [weekKey, texts] of Object.entries(grouped)) {
-      if (existingWeeks.has(weekKey)) continue; // skip yang udah ada
-
-      const { text: narrative } = await generateText({
-        model: openrouter("gpt-3.5-turbo"),
-        prompt: `
-You are a calm storyteller.
-Write a short third-person weekly summary based on these entries.
-Tone: gentle, honest, factual, and a bit reflective.
-
-Entries:
-${texts.join("\n")}
-        `,
-      });
-
-      const saved = await storyModel.save(weekKey, narrative.trim());
-      newStories.push(saved);
+    const added = [];
+    for (const [dayKey, entriesForDay] of Object.entries(grouped)) {
+      if (existingDays.has(dayKey)) continue; // sudah ada, skip
+      const saved = await generateDailyStoryForDay(dayKey, entriesForDay);
+      added.push(saved);
     }
 
-    console.log(`✅ Backfill complete: ${newStories.length} stories added.`);
     res.json({
-      message: `✅ Backfill complete (${newStories.length} added).`,
-      added: newStories,
+      message: `Backfill complete (${added.length} stories added).`,
+      added,
     });
   } catch (err) {
     console.error("POST /story/backfill error:", err);
@@ -161,7 +183,9 @@ ${texts.join("\n")}
   }
 });
 
-/* 🗑️ DELETE story */
+/* ========================================================
+   DELETE — hapus 1 story
+======================================================== */
 router.delete("/:id", async (req, res) => {
   try {
     await storyModel.remove(req.params.id);

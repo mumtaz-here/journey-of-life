@@ -1,5 +1,5 @@
 /**
- * Journey of Life — Model: Habit Logs (FINAL FIXED FOR DATE MATCHING)
+ * Journey of Life — Model: Habit Logs (FINAL FIX FOR LOCAL DATE MATCH)
  */
 
 import db from "../index.js";
@@ -17,12 +17,12 @@ export async function initHabitLogsTable() {
     );
   `);
 
-  console.log("✅ Table 'habit_logs' ready.");
+  console.log("🟩 Table 'habit_logs' ready.");
 }
 
 /* ---------------------------------------------------
-   ❗ ALL DATE MATCHES NOW USE log_date::text = $2
-   --------------------------------------------------- */
+   LOCAL-DATE MATCHING USING log_date::text = YYYY-MM-DD
+--------------------------------------------------- */
 
 // GET LOG FOR SPECIFIC DAY
 export async function getLogForDate(habitId, dateKey) {
@@ -54,7 +54,7 @@ export async function createLog(habitId, dateKey) {
   return result.rows[0];
 }
 
-// DELETE (UNTICK)
+// DELETE
 export async function deleteLog(habitId, dateKey) {
   await db.query(
     `

@@ -1,6 +1,5 @@
 /**
- * Journey of Life — Route: Habits (FINAL STABLE)
- * Works with: habit-logs.js + habits.js (fixed)
+ * Journey of Life — Route: Habits (FIXED LOCAL DATE)
  */
 
 import express from "express";
@@ -20,9 +19,13 @@ import {
 
 const router = express.Router();
 
-// today key → YYYY-MM-DD
+/* ----------------------------------------------------
+   LOCAL DATE KEY → YYYY-MM-DD (NO UTC SHIFT)
+---------------------------------------------------- */
 function todayKey() {
-  return new Date().toISOString().split("T")[0];
+  const dt = new Date();
+  dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+  return dt.toISOString().split("T")[0];
 }
 
 /* ----------------------------------------------------
@@ -66,14 +69,11 @@ router.patch("/:id/toggle", async (req, res) => {
     const id = Number(req.params.id);
     const tk = todayKey();
 
-    // check existing log
     const existing = await getLogForDate(id, tk);
 
     if (existing) {
-      // uncheck
       await deleteLog(id, tk);
     } else {
-      // check
       await createLog(id, tk);
     }
 

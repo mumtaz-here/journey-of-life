@@ -1,5 +1,5 @@
 /**
- * Journey of Life — Model: Habits (FINAL FIXED)
+ * Journey of Life — Model: Habits (FIXED LOCAL DATE)
  */
 
 import db from "../index.js";
@@ -16,23 +16,25 @@ export async function initHabitsTable() {
   console.log("🌿 Table 'habits' ready.");
 }
 
-// Convert date → YYYY-MM-DD
+/* --------------------------------------------------------
+   LOCAL DATE KEY — NO UTC SHIFT
+-------------------------------------------------------- */
 function toKey(d) {
-  return new Date(d).toISOString().split("T")[0];
+  const dt = new Date(d);
+  dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+  return dt.toISOString().split("T")[0];
 }
 
 /* --------------------------------------------------------
    GET ALL HABITS + TODAY STATUS + STREAK
-   🔥 FIXED:
-   - log_date::text for all comparisons
-   -------------------------------------------------------- */
+-------------------------------------------------------- */
 export async function getHabitsWithTodayStatus(todayKey) {
   const habitsRes = await db.query(`SELECT * FROM habits ORDER BY id ASC`);
   const habits = habitsRes.rows;
 
   if (habits.length === 0) return [];
 
-  // ⭐ FIX: log_date::text <= $1
+  // get all logs up to today
   const logsRes = await db.query(
     `
       SELECT habit_id, log_date, status
@@ -48,12 +50,11 @@ export async function getHabitsWithTodayStatus(todayKey) {
     byHabit.get(log.habit_id).push(log);
   }
 
+  // compute streak
   function computeStreak(id) {
     const logs = byHabit.get(id) || [];
     const doneDates = new Set(
-      logs
-        .filter(l => l.status === "done")
-        .map(l => toKey(l.log_date))
+      logs.filter(l => l.status === "done").map(l => toKey(l.log_date))
     );
 
     let streak = 0;
@@ -66,6 +67,7 @@ export async function getHabitsWithTodayStatus(todayKey) {
         cursor.setDate(cursor.getDate() - 1);
       } else break;
     }
+
     return streak;
   }
 
@@ -78,7 +80,7 @@ export async function getHabitsWithTodayStatus(todayKey) {
     return {
       ...h,
       today_done: doneToday,
-      streak: computeStreak(h.id),
+      streak: computeStreak(h.id)
     };
   });
 }
@@ -97,7 +99,7 @@ export async function addHabit(title) {
   return {
     ...res.rows[0],
     today_done: false,
-    streak: 0,
+    streak: 0
   };
 }
 
