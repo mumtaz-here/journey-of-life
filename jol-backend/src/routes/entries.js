@@ -7,9 +7,8 @@
  */
 
 import express from "express";
-import { getAllEntries, addEntry } from "../db/models/entries.js";
+import { getAllEntries, addEntry, getEntriesByDate } from "../db/models/entries.js";
 import { upsertSummary } from "../db/models/summaries.js";
-import { extractPlans } from "../utils/intent-parser.js";
 
 // 🌿 AI SDK imports
 import { generateText } from "ai";
@@ -21,7 +20,9 @@ import storyModel from "../db/models/story.js";
 
 const router = express.Router();
 
-// 🔑 Init provider
+/* ============================================================
+   🔑 Init AI Provider (FREE MODEL)
+   ============================================================ */
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
   headers: {
@@ -30,29 +31,21 @@ const openrouter = createOpenRouter({
   },
 });
 
-/* Helper: get date key (YYYY-MM-DD), pakai zona lokal */
+// Free model instead of GPT-3.5
+const FREE_MODEL = "openai/gpt-oss-20b:free";
+
+/* ============================================================
+   Helper → get local YYYY-MM-DD
+   ============================================================ */
 function getDateKey(date = new Date()) {
   const d = new Date(date);
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   return d.toISOString().split("T")[0];
 }
 
-/* GET all entries */
-router.get("/", async (_req, res) => {
-  try {
-    const rows = await getAllEntries();
-    res.json(rows);
-  } catch (err) {
-    console.error("GET /entries error:", err);
-    res.status(500).json({ error: "Failed to fetch entries" });
-  }
-});
-
-/* Helper: update / generate daily story untuk 1 hari
-   Mode C:
-   - kalau entry < 3 → rewrite total
-   - kalau entry >= 3 → merge dengan narasi lama, tapi tetap netral & factual
-*/
+/* ============================================================
+   Daily Story Updater (factual & neutral)
+   ============================================================ */
 async function updateDailyStory(dayKey, todaysEntries) {
   const total = todaysEntries.length;
   const texts = total
@@ -70,7 +63,7 @@ async function updateDailyStory(dayKey, todaysEntries) {
   const existingBlock = hasExisting ? existing.narrative : "(belum ada)";
 
   const { text: narrative } = await generateText({
-    model: openrouter("openai/gpt-3.5-turbo"),
+    model: openrouter(FREE_MODEL),
     system: `
 Kamu penulis narasi harian yang sangat factual dan tenang.
 
@@ -97,60 +90,67 @@ Mode: ${mode}
 Existing story (boleh dirapikan / dipadatkan, tapi jangan dibuat dramatis):
 ${existingBlock}
 
-Entries untuk hari ini (${total} buah, bisa pendek / repetitif):
+Entries untuk hari ini (${total} buah):
 ${texts}
 
 Tulis satu narasi pendek yang utuh untuk hari ini sesuai aturan di atas.
     `,
   });
 
-  const saved = await storyModel.save(dayKey, narrative.trim());
-  return saved;
+  return storyModel.save(dayKey, narrative.trim());
 }
 
-/* POST new entry → auto summary + highlights + daily story */
+/* ============================================================
+   📌 POST New Entry + AI Summary + Daily Story Sync
+   ============================================================ */
 router.post("/", async (req, res) => {
   try {
-    const { text, analysis = null } = req.body || {};
+    const { text } = req.body || {};
     if (!text?.trim()) return res.status(400).json({ error: "text required" });
 
     // 1️⃣ Save entry
-    const entry = await addEntry(text, analysis);
+    const entry = await addEntry(text);
     const today = getDateKey(entry.created_at);
 
-    // 2️⃣ Collect all entries from today
-    const allEntries = await getAllEntries();
-    const todaysEntries = allEntries.filter(
-      (e) => getDateKey(e.created_at) === today
-    );
+    // 2️⃣ Get all today's entries
+    const todaysEntries = await getEntriesByDate(today);
     const todaysTexts = todaysEntries.map((e) => e.text).join("\n");
 
-    // 3️⃣ Generate factual daily summary via AI SDK
+    // 3️⃣ AI Summary (FREE MODEL)
     const { text: summaryText } = await generateText({
-      model: openrouter("openai/gpt-3.5-turbo"),
+      model: openrouter(FREE_MODEL),
       system:
-        "You are a factual journaling summarizer. Summarize the user's daily reflections based on *real facts only*. Include: total messages, overall mood (if mentioned), main activities, and key focus areas. Output short bullet points only.",
-      prompt: todaysTexts || "(No explicit text today.)",
+        "Ringkas faktual jurnal harian dalam bullet point pendek. Jangan mengarang informasi. Jika mood/aspek tidak jelas, jangan disebutkan.",
+      prompt: todaysTexts,
     });
 
-    // 4️⃣ Save or update today's summary
+    // 4️⃣ Save summary
     await upsertSummary(today, summaryText);
 
-    // 5️⃣ Update daily story (narasi harian)
+    // 5️⃣ Story Sync
     const dailyStory = await updateDailyStory(today, todaysEntries);
-
-    // Extract any detected "plans"
-    const plans = extractPlans(text);
 
     res.json({
       ...entry,
-      auto_highlights: plans,
       auto_summary: summaryText,
       auto_story: dailyStory,
     });
   } catch (err) {
     console.error("POST /entries error:", err);
     res.status(500).json({ error: "Failed to create entry or summary" });
+  }
+});
+
+/* ============================================================
+   📌 GET all entries
+   ============================================================ */
+router.get("/", async (_req, res) => {
+  try {
+    const rows = await getAllEntries();
+    res.json(rows);
+  } catch (err) {
+    console.error("GET /entries error:", err);
+    res.status(500).json({ error: "Failed to fetch entries" });
   }
 });
 

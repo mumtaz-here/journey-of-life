@@ -7,16 +7,36 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   fetchEntries as apiFetchEntries,
   fetchHighlights as apiFetchHighlights,
   fetchSummaries as apiFetchSummaries,
-} from "../utils/api";
+  fetchEntries,
+} from "../utils/api.js";
+import { Line } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  LineElement,
+  PointElement,
+  CategoryScale,
+  LinearScale,
+  Tooltip,
+  Legend,
+} from "chart.js";
+
+ChartJS.register(
+  LineElement,
+  PointElement,
+  CategoryScale,
+  LinearScale,
+  Tooltip,
+  Legend
+);
 
 const container =
   "max-w-2xl mx-auto px-4 py-6 text-[#2E2A26] bg-[#FAF7F2] min-h-screen flex flex-col gap-4";
-const card =
-  "bg-white border border-[#E8E1DA] rounded-2xl shadow-sm";
+const card = "bg-white border border-[#E8E1DA] rounded-2xl shadow-sm";
 const title = "text-lg font-semibold";
 const sub = "text-sm opacity-70";
 
@@ -89,7 +109,7 @@ function SummaryPanel() {
   const [jumpDate, setJumpDate] = useState("");
   const listRef = useRef(null);
   const dateInputRef = useRef(null);
-  const dateRefs = useRef({}); // { [dateKey]: HTMLElement }
+  const dateRefs = useRef({});
 
   useEffect(() => {
     (async () => {
@@ -108,7 +128,6 @@ function SummaryPanel() {
     })();
   }, []);
 
-  // auto-scroll ke bawah waktu pertama kali load
   useEffect(() => {
     if (listRef.current && summaries.length > 0) {
       listRef.current.scrollTo({
@@ -156,10 +175,7 @@ function SummaryPanel() {
         />
       </div>
 
-      <div
-        ref={listRef}
-        className="flex-1 max-h-[65vh] overflow-y-auto pr-1"
-      >
+      <div ref={listRef} className="flex-1 max-h-[65vh] overflow-y-auto pr-1">
         {loading && (
           <p className="text-sm italic text-[#8C7F78] text-center mt-4">
             Loading summaries…
@@ -175,7 +191,6 @@ function SummaryPanel() {
           const dateKey = toLocalDateKey(s.summary_date);
           return (
             <div key={s.summary_date} className="mt-3">
-              {/* date chip center */}
               <div
                 className="flex justify-center mb-2"
                 ref={(el) => {
@@ -186,7 +201,6 @@ function SummaryPanel() {
                   {formatDateChip(s.summary_date)}
                 </span>
               </div>
-              {/* bubble left */}
               <div className="flex justify-start">
                 <div className="max-w-[85%] bg-[#F9F5F0] border border-[#E8E1DA] rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">
@@ -212,7 +226,7 @@ function HighlightsPanel() {
   const [jumpDate, setJumpDate] = useState("");
   const listRef = useRef(null);
   const dateInputRef = useRef(null);
-  const dateRefs = useRef({}); // { [dateKey]: HTMLElement }
+  const dateRefs = useRef({});
   const didRunRef = useRef(false);
 
   const dateKeyFor = (h) =>
@@ -255,7 +269,6 @@ function HighlightsPanel() {
     })();
   }, []);
 
-  // auto-scroll ke bawah waktu pertama kali load
   useEffect(() => {
     if (listRef.current && items.length > 0) {
       listRef.current.scrollTo({
@@ -283,7 +296,6 @@ function HighlightsPanel() {
     }
   }
 
-  // group highlights by day (pakai planned_date kalau ada)
   const byDate = useMemo(() => {
     const map = {};
     for (const h of items) {
@@ -315,9 +327,7 @@ function HighlightsPanel() {
         />
       </div>
 
-      {status && (
-        <div className="text-[11px] text-[#7E7A74] mb-1">{status}</div>
-      )}
+      {status && <div className="text-[11px] text-[#7E7A74] mb-1">{status}</div>}
 
       <div
         ref={listRef}
@@ -327,9 +337,7 @@ function HighlightsPanel() {
           <p className="text-center text-sm opacity-70">Loading…</p>
         )}
         {!loading && items.length === 0 && (
-          <p className="text-center text-sm opacity-70">
-            No highlights yet.
-          </p>
+          <p className="text-center text-sm opacity-70">No highlights yet.</p>
         )}
 
         {sortedDateKeys.map((dateKey) => {
@@ -337,7 +345,6 @@ function HighlightsPanel() {
           const refDate = dayItems[0].planned_date || dayItems[0].created_at;
           return (
             <div key={dateKey} className="mt-2">
-              {/* date chip center */}
               <div
                 className="flex justify-center mb-1"
                 ref={(el) => {
@@ -367,182 +374,88 @@ function HighlightsPanel() {
 }
 
 /* ===============================
-   PROGRESS PANEL — sama seperti sebelumnya
+   PROGRESS PANEL — TanStack Query
 =============================== */
+
+// Helper: format YYYY-MM-DD
+function toLocalKey(dateStr) {
+  return new Date(dateStr).toISOString().split("T")[0];
+}
+
 function ProgressPanel() {
-  const [entries, setEntries] = useState([]);
+  const q = useQuery({ queryKey: ["entries"], queryFn: fetchEntries });
 
-  useEffect(() => {
-    (async () => {
-      const data = (await apiFetchEntries()) || [];
-      setEntries(data);
-    })();
-  }, []);
+  if (q.isLoading)
+    return (
+      <section className={`${card} p-5`}>
+        <p className="text-sm italic text-[#8C7F78] text-center">Loading progress…</p>
+      </section>
+    );
 
-  const countsByDay = useMemo(() => {
-    const map = new Map();
-    for (const e of entries) {
-      const k = toLocalDateKey(e.created_at);
-      map.set(k, (map.get(k) || 0) + 1);
-    }
-    return map;
-  }, [entries]);
+  const entries = q.data || [];
+  const byDay = {};
 
-  const lastNDays = (n) => {
-    const arr = [];
-    const today = new Date();
-    for (let i = n - 1; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const key = toLocalDateKey(d);
-      arr.push({
-        key,
-        label: d.toLocaleDateString("en-GB", { day: "2-digit" }),
-        count: countsByDay.get(key) || 0,
-      });
-    }
-    return arr;
-  };
+  entries.forEach((e) => {
+    const k = toLocalKey(e.created_at);
+    byDay[k] = (byDay[k] || 0) + 1;
+  });
 
-  const last7 = useMemo(() => lastNDays(7), [countsByDay]);
-  const last14 = useMemo(() => lastNDays(14), [countsByDay]);
+  const labels = Object.keys(byDay).sort((a, b) => new Date(a) - new Date(b));
+  const dataPoints = labels.map((d) => byDay[d]);
 
-  const streak = useMemo(() => {
-    let s = 0;
-    const todayKey = toLocalDateKey(new Date());
-    let cur = new Date();
-    while (true) {
-      const key = toLocalDateKey(cur);
-      const v = countsByDay.get(key) || 0;
-      if (v > 0) {
-        s += 1;
-        cur.setDate(cur.getDate() - 1);
-      } else {
-        if (key === todayKey) return 0;
-        break;
-      }
-    }
-    return s;
-  }, [countsByDay]);
-
-  const woW = useMemo(() => {
-    const mapSum = (start, end) => {
-      let sum = 0;
-      for (const [k, v] of countsByDay.entries()) {
-        const d = new Date(k);
-        if (d >= start && d < end) sum += v;
-      }
-      return sum;
-    };
-
-    const startOfWeek = (d) => {
-      const copy = new Date(d);
-      const day = copy.getDay(); // 0 Sun ... 6 Sat
-      const diff = (day + 6) % 7; // Monday-based
-      copy.setHours(0, 0, 0, 0);
-      copy.setDate(copy.getDate() - diff);
-      return copy;
-    };
-    const endOfWeek = (start) => {
-      const e = new Date(start);
-      e.setDate(e.getDate() + 7);
-      return e;
-    };
-
-    const now = new Date();
-    const thisStart = startOfWeek(now);
-    const lastStart = new Date(thisStart);
-    lastStart.setDate(lastStart.getDate() - 7);
-    const thisEnd = endOfWeek(thisStart);
-    const lastEnd = endOfWeek(lastStart);
-
-    const thisSum = mapSum(thisStart, thisEnd);
-    const lastSum = mapSum(lastStart, lastEnd);
-    const diff = thisSum - lastSum;
-    const trend = diff === 0 ? "same" : diff > 0 ? "up" : "down";
-    return { thisSum, lastSum, diff, trend };
-  }, [countsByDay]);
-
-  const dailyAvg7 = useMemo(() => {
-    const sum = last7.reduce((a, b) => a + b.count, 0);
-    return (sum / 7).toFixed(1);
-  }, [last7]);
-
-  const bestDay = useMemo(() => {
-    let best = { key: null, count: -1 };
-    for (const d of last14) {
-      if (d.count > best.count) best = { key: d.key, count: d.count };
-    }
-    return best.count > 0 ? best : null;
-  }, [last14]);
-
-  const max = Math.max(1, ...last7.map((d) => d.count));
+  // Streak
+  let streak = 0;
+  let cur = toLocalKey(new Date());
+  for (const k of labels.slice().reverse()) {
+    if (k === cur) {
+      streak++;
+      const prev = new Date(cur);
+      prev.setDate(prev.getDate() - 1);
+      cur = toLocalKey(prev);
+    } else break;
+  }
 
   return (
     <section className={`${card} p-5`}>
       <h2 className={title}>Progress</h2>
-      <p className={`${sub} mt-1`}>Entries in the last 7 days</p>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <KpiCard
-          label="Writing Streak"
-          value={`${streak} day${streak === 1 ? "" : "s"}`}
-          hint="consecutive days with entries"
-        />
-        <KpiCard
-          label="This Week vs Last"
-          value={`${woW.thisSum} vs ${woW.lastSum}`}
-          hint={
-            woW.trend === "up"
-              ? "↑ more active"
-              : woW.trend === "down"
-              ? "↓ less active"
-              : "— same pace"
-          }
-        />
-        <KpiCard
-          label="Daily Avg (7d)"
-          value={dailyAvg7}
-          hint="entries / day"
-        />
-        <KpiCard
-          label="Best Day (14d)"
-          value={bestDay ? `${bestDay.count}` : "—"}
-          hint={
-            bestDay
-              ? `on ${new Date(bestDay.key).toLocaleDateString("en-GB", {
-                  day: "2-digit",
-                  month: "short",
-                })}`
-              : "no entries yet"
-          }
-        />
+      <div className="mt-3 flex items-center justify-between">
+        <div className="bg-[#F9F5F0] border border-[#E8E1DA] rounded-xl px-4 py-2 shadow-sm">
+          <p className="text-[13px] text-[#7E7A74]">🔥 Streak</p>
+          <p className="text-lg font-semibold text-[#2E2A26]">{streak} days</p>
+        </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-7 gap-2 items-end">
-        {last7.map((d) => (
-          <div key={d.key} className="flex flex-col items-center gap-1">
-            <div
-              className="w-7 rounded-xl bg-[#CBB9A8]"
-              style={{ height: `${(d.count / max) * 110 + 6}px` }}
-              title={`${d.count} entries`}
-            />
-            <span className="text-[11px] opacity-70">{d.label}</span>
-          </div>
-        ))}
+      <div className="mt-5">
+        {labels.length > 0 ? (
+          <Line
+            data={{
+              labels,
+              datasets: [
+                {
+                  label: "Entries",
+                  data: dataPoints,
+                  borderColor: "#CFAE7C",
+                  backgroundColor: "rgba(207,174,124,0.35)",
+                  tension: 0.35,
+                  fill: true,
+                },
+              ],
+            }}
+            options={{
+              responsive: true,
+              plugins: { legend: { display: false } },
+              scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1 } },
+              },
+            }}
+          />
+        ) : (
+          <p className="text-sm text-gray-400 text-center mt-6">
+            Belum ada entry untuk ditampilkan 🌿
+          </p>
+        )}
       </div>
     </section>
-  );
-}
-
-function KpiCard({ label, value, hint }) {
-  return (
-    <div className="rounded-xl border border-[#E8E1DA] bg-[#F9F5F0] p-3">
-      <div className="text-[11px] text-[#7E7A74]">{label}</div>
-      <div className="text-lg font-semibold text-[#2E2A26] leading-tight">
-        {value}
-      </div>
-      <div className="text-[11px] text-[#9C8E85]">{hint}</div>
-    </div>
   );
 }

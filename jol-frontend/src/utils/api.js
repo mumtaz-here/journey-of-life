@@ -1,13 +1,7 @@
-// ✅ src/utils/api.js (FINAL LOCAL VERSION FIXED)
-// ----------------------------------------------------
-// Routes ke backend lokal (http://localhost:5000/api)
-// ----------------------------------------------------
-
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
   "http://localhost:5000/api";
 
-// safer fetch
 async function safeFetch(url, options = {}) {
   try {
     const res = await fetch(url, {
@@ -22,7 +16,6 @@ async function safeFetch(url, options = {}) {
   }
 }
 
-/* -------- ENTRIES -------- */
 export async function fetchEntries() {
   return safeFetch(`${API_BASE_URL}/entries`);
 }
@@ -34,7 +27,6 @@ export async function createEntry(text, analysis = null) {
   });
 }
 
-// DELETE entry when unchecking habit
 export async function deleteEntryByText(text) {
   return safeFetch(`${API_BASE_URL}/entries/by-text`, {
     method: "DELETE",
@@ -42,7 +34,6 @@ export async function deleteEntryByText(text) {
   });
 }
 
-/* -------- HIGHLIGHTS -------- */
 export async function fetchHighlights() {
   return safeFetch(`${API_BASE_URL}/highlights`);
 }
@@ -66,7 +57,6 @@ export async function deleteHighlight(id) {
   });
 }
 
-/* -------- HABITS -------- */
 export async function fetchHabits() {
   return safeFetch(`${API_BASE_URL}/habits`);
 }
@@ -90,7 +80,6 @@ export async function deleteHabit(id) {
   });
 }
 
-/* -------- SUMMARIES -------- */
 export async function fetchSummaries() {
   return safeFetch(`${API_BASE_URL}/summaries`);
 }

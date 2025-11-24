@@ -1,14 +1,22 @@
 /**
- * Journey of Life — DB Model: Highlights (CONTEXT-SYNC FINAL)
- * -----------------------------------------------------------
- * - Simple, explicit CRUD
- * - No hidden “smart” side effects (semua logika di routes)
- * - Supports querying per-day (for backfill skipping)
+ * Journey of Life — Model: Highlights (Plans & Updates)
+ * -----------------------------------------------------
+ * Highlights include:
+ * - future plans (scheduled by AI or manually)
+ * - plan updates (rescheduled / cancelled)
+ * - important actions (today)
+ *
+ * Rules:
+ * - status: 'planned' | 'done'
+ * - planned_date is used to place the plan on the right day
+ * - created_at marks when the plan was first detected
  */
 
 import db from "../index.js";
 
-// 🧱 Create table if not exists
+/**
+ * Create table if not exists
+ */
 export async function initHighlightsTable() {
   try {
     await db.query(`
@@ -19,7 +27,7 @@ export async function initHighlightsTable() {
         planned_date DATE,
         source_entry_id INTEGER,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
+      );
     `);
     console.log("🧱 Highlights table ready.");
   } catch (err) {
@@ -27,7 +35,9 @@ export async function initHighlightsTable() {
   }
 }
 
-// 🔍 Get all highlights (ordered by planned_date or created_at)
+/**
+ * Get all highlights sorted by planned date first, then created_at
+ */
 export async function getAllHighlights() {
   const res = await db.query(
     `SELECT id, text, status, planned_date, created_at
@@ -37,21 +47,23 @@ export async function getAllHighlights() {
   return res.rows;
 }
 
-// 🔍 Get highlights by a specific date (planned_date or created_at::date)
+/**
+ * Get highlights for a specific day
+ */
 export async function getHighlightsByDay(dateKey) {
   const res = await db.query(
-    `
-    SELECT id, text, status, planned_date, created_at
-    FROM highlights
-    WHERE COALESCE(planned_date::date, created_at::date) = $1::date
-    ORDER BY created_at ASC, id ASC
-    `,
+    `SELECT id, text, status, planned_date, created_at
+     FROM highlights
+     WHERE COALESCE(planned_date::date, created_at::date) = $1::date
+     ORDER BY created_at ASC, id ASC`,
     [dateKey]
   );
   return res.rows;
 }
 
-// ➕ Insert highlight (no smart magic)
+/**
+ * Insert a highlight normally (manual or AI)
+ */
 export async function addHighlight(
   text,
   planned_date = null,
@@ -59,38 +71,38 @@ export async function addHighlight(
 ) {
   if (!text || !text.trim()) return null;
   const res = await db.query(
-    `
-    INSERT INTO highlights (text, planned_date, source_entry_id)
-    VALUES ($1, $2, $3)
-    RETURNING id, text, status, planned_date, created_at
-    `,
+    `INSERT INTO highlights (text, planned_date, source_entry_id)
+     VALUES ($1, $2, $3)
+     RETURNING id, text, status, planned_date, created_at`,
     [text.trim(), planned_date, source_entry_id]
   );
   return res.rows[0];
 }
 
-// 🔄 Toggle planned/done
+/**
+ * Toggle plan status: planned <-> done
+ */
 export async function toggleHighlight(id) {
   const cur = await db.query(
-    "SELECT status FROM highlights WHERE id = $1",
+    `SELECT status FROM highlights WHERE id = $1`,
     [id]
   );
-  if (cur.rows.length === 0) return null;
+  if (!cur.rows.length) return null;
 
   const next = cur.rows[0].status === "done" ? "planned" : "done";
   const res = await db.query(
-    `
-    UPDATE highlights
-    SET status = $1
-    WHERE id = $2
-    RETURNING id, text, status, planned_date, created_at
-    `,
+    `UPDATE highlights
+     SET status = $1
+     WHERE id = $2
+     RETURNING id, text, status, planned_date, created_at`,
     [next, id]
   );
   return res.rows[0];
 }
 
-// 🗑️ Delete highlight
+/**
+ * Delete highlight
+ */
 export async function deleteHighlight(id) {
-  await db.query("DELETE FROM highlights WHERE id = $1", [id]);
+  await db.query(`DELETE FROM highlights WHERE id = $1`, [id]);
 }

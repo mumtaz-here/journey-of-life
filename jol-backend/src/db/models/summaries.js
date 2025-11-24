@@ -1,15 +1,14 @@
 /**
- * Journey of Life — Model: Summaries
- * ----------------------------------
- * One summary per day, saved in the database.
- * - Used for "My Journey" / Summary bubbles (left side).
+ * Journey of Life — Model: Summaries (AI — Daily Summary)
+ * -------------------------------------------------------
+ * One summary per day, updated every time user sends an entry.
+ * Summary is short factual bullet points (AI-generated).
  */
 
 import db from "../index.js";
 
 /**
- * Create table "summaries" if not exists.
- * One row per date.
+ * Create table if not exists
  */
 export async function initSummariesTable() {
   const query = `
@@ -26,29 +25,34 @@ export async function initSummariesTable() {
 }
 
 /**
- * Get all summaries ordered by date ascending.
+ * Fetch all summaries sorted by date
  */
 export async function getAllSummaries() {
   const result = await db.query(
-    "SELECT * FROM summaries ORDER BY summary_date ASC"
+    `SELECT summary_date, summary_text, created_at, updated_at
+     FROM summaries
+     ORDER BY summary_date ASC`
   );
   return result.rows;
 }
 
 /**
- * Get summary for a specific date (YYYY-MM-DD).
+ * Get summary for a specific date
  */
 export async function getSummaryByDate(date) {
   const result = await db.query(
-    "SELECT * FROM summaries WHERE summary_date = $1 LIMIT 1",
+    `SELECT id, summary_date, summary_text
+     FROM summaries
+     WHERE summary_date = $1
+     LIMIT 1`,
     [date]
   );
   return result.rows[0] || null;
 }
 
 /**
- * Insert or update summary for a given date.
- * If a summary already exists for that date, it will be updated.
+ * Insert or update summary per date
+ * Summary is overwritten by latest AI
  */
 export async function upsertSummary(date, text) {
   const query = `
@@ -58,7 +62,7 @@ export async function upsertSummary(date, text) {
     DO UPDATE SET
       summary_text = EXCLUDED.summary_text,
       updated_at = CURRENT_TIMESTAMP
-    RETURNING *;
+    RETURNING summary_date, summary_text;
   `;
   const result = await db.query(query, [date, text]);
   return result.rows[0];

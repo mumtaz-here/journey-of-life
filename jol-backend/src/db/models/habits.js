@@ -1,5 +1,5 @@
 /**
- * Journey of Life — Model: Habits (FIXED LOCAL DATE)
+ * Journey of Life — Model: Habits (FIXED LOCAL DATE + STATUS)
  */
 
 import db from "../index.js";
@@ -26,7 +26,7 @@ function toKey(d) {
 }
 
 /* --------------------------------------------------------
-   GET ALL HABITS + TODAY STATUS + STREAK
+   GET ALL HABITS + TODAY STATUS + STREAK + STATUS FIELD
 -------------------------------------------------------- */
 export async function getHabitsWithTodayStatus(todayKey) {
   const habitsRes = await db.query(`SELECT * FROM habits ORDER BY id ASC`);
@@ -34,7 +34,7 @@ export async function getHabitsWithTodayStatus(todayKey) {
 
   if (habits.length === 0) return [];
 
-  // get all logs up to today
+  // ambil semua log sampai hari ini
   const logsRes = await db.query(
     `
       SELECT habit_id, log_date, status
@@ -50,7 +50,6 @@ export async function getHabitsWithTodayStatus(todayKey) {
     byHabit.get(log.habit_id).push(log);
   }
 
-  // compute streak
   function computeStreak(id) {
     const logs = byHabit.get(id) || [];
     const doneDates = new Set(
@@ -80,6 +79,7 @@ export async function getHabitsWithTodayStatus(todayKey) {
     return {
       ...h,
       today_done: doneToday,
+      status: doneToday ? "done" : "planned", // ⭐ FIX status agar UI bisa centang
       streak: computeStreak(h.id)
     };
   });
@@ -99,6 +99,7 @@ export async function addHabit(title) {
   return {
     ...res.rows[0],
     today_done: false,
+    status: "planned", // ⭐ NEW FIELD
     streak: 0
   };
 }

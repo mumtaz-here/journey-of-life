@@ -1,38 +1,61 @@
 /**
- * Journey of Life — Model: Entries
- * --------------------------------
- * Handles SQL structure & queries for journal entries.
+ * Journey of Life — Model: Entries (AI-only, no manual analysis)
+ * --------------------------------------------------------------
+ * - Stores raw text from user
+ * - Does NOT store parsed analysis anymore
+ * - Other tables (summaries, highlights, story) use AI and reference entries
  */
 
 import db from "../index.js";
 
+// 🧱 Create table if not exists (clean, no analysis column)
 export async function initEntriesTable() {
-  const query = `
+  await db.query(`
     CREATE TABLE IF NOT EXISTS entries (
       id SERIAL PRIMARY KEY,
       text TEXT NOT NULL,
-      analysis JSONB,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
-  `;
-  await db.query(query);
+  `);
   console.log("🪶 Table 'entries' ready.");
 }
 
+// 🔍 Get all entries, newest last (for chat scrolling)
 export async function getAllEntries() {
-  const result = await db.query("SELECT * FROM entries ORDER BY created_at DESC");
+  const result = await db.query(`
+    SELECT * FROM entries ORDER BY created_at ASC;
+  `);
   return result.rows;
 }
 
-export async function addEntry(text, analysis = null) {
+// 🔍 Get entries for specific day (YYYY-MM-DD)
+export async function getEntriesByDate(dateKey) {
   const result = await db.query(
-    "INSERT INTO entries (text, analysis) VALUES ($1, $2) RETURNING *",
-    [text, analysis]
+    `
+      SELECT * FROM entries
+      WHERE created_at::date = $1::date
+      ORDER BY created_at ASC;
+    `,
+    [dateKey]
+  );
+  return result.rows;
+}
+
+// ➕ Insert entry (text only)
+export async function addEntry(text) {
+  const result = await db.query(
+    `
+      INSERT INTO entries (text)
+      VALUES ($1)
+      RETURNING *;
+    `,
+    [text]
   );
   return result.rows[0];
 }
 
+// 🗑️ Delete entry (id)
 export async function deleteEntry(id) {
-  await db.query("DELETE FROM entries WHERE id = $1", [id]);
+  await db.query(`DELETE FROM entries WHERE id = $1`, [id]);
   return true;
 }
