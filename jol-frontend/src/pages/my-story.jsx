@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
 const container =
-  "max-w-2xl mx-auto px-6 py-8 flex flex-col gap-8 text-[#2E2A26] bg-[#FAF7F2] min-h-screen";
+  "max-w-2xl mx-auto px-3 sm:px-4 md:px-6 py-8 flex flex-col gap-8 text-[#2E2A26] bg-[#FAF7F2] min-h-screen";
 
 /* =======================================================================
    MAIN COMPONENT
@@ -138,7 +138,7 @@ export default function MyStory() {
       </header>
 
       {/* Filter Box (simple, clean) */}
-      <section className="bg-white border border-[#E8E1DA] rounded-2xl p-5 shadow-sm flex flex-col gap-4">
+      <section className="bg-white border border-[#E8E1DA] rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col gap-4">
         <div className="flex justify-between items-center">
           <span className="text-sm font-medium text-[#5C5147]">
             Filter tanggal
@@ -180,7 +180,8 @@ export default function MyStory() {
           <div className="flex gap-2 sm:flex-col">
             <button
               type="submit"
-              className="px-4 py-2 rounded-xl text-xs font-medium text-white bg-[#9EC3B0] hover:bg-[#86b7a0] transition active:scale-95"
+              className="px-4 py-2 rounded-xl text-xs font-medium text
+-white bg-[#9EC3B0] hover:bg-[#86b7a0] transition active:scale-95"
             >
               Apply
             </button>
@@ -215,12 +216,11 @@ export default function MyStory() {
           </p>
         )}
 
-        {/* List cards */}
         {!loading &&
           stories.map((s) => (
             <article
               key={s.id}
-              className="bg-white border border-[#E8E1DA] rounded-2xl shadow-sm p-6 flex flex-col gap-3 hover:bg-[#FFFBF4] transition"
+              className="bg-white border border-[#E8E1DA] rounded-2xl shadow-sm p-4 sm:p-6 flex flex-col gap-3 hover:bg-[#FFFBF4] transition"
             >
               <div className="flex justify-between items-center">
                 <span className="font-medium">

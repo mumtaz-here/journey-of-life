@@ -9,7 +9,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  fetchEntries as apiFetchEntries,
   fetchHighlights as apiFetchHighlights,
   fetchSummaries as apiFetchSummaries,
   fetchEntries,
@@ -35,7 +34,7 @@ ChartJS.register(
 );
 
 const container =
-  "max-w-2xl mx-auto px-4 py-6 text-[#2E2A26] bg-[#FAF7F2] min-h-screen flex flex-col gap-4";
+  "max-w-2xl mx-auto px-3 sm:px-4 py-6 text-[#2E2A26] bg-[#FAF7F2] min-h-screen flex flex-col gap-4";
 const card = "bg-white border border-[#E8E1DA] rounded-2xl shadow-sm";
 const title = "text-lg font-semibold";
 const sub = "text-sm opacity-70";
@@ -156,7 +155,7 @@ function SummaryPanel() {
   }
 
   return (
-    <section className={`${card} p-5 flex flex-col gap-3`}>
+    <section className={`${card} p-4 sm:p-5 flex flex-col gap-3`}>
       <div className="flex items-center justify-between">
         <h2 className={title}>Summary</h2>
         <button
@@ -308,7 +307,7 @@ function HighlightsPanel() {
   const sortedDateKeys = Object.keys(byDate).sort();
 
   return (
-    <section className={`${card} p-4`}>
+    <section className={`${card} p-4 sm:p-5`}>
       <div className="flex justify-between items-center mb-2">
         <h2 className={title}>Highlights</h2>
         <button
@@ -377,7 +376,6 @@ function HighlightsPanel() {
    PROGRESS PANEL — TanStack Query
 =============================== */
 
-// Helper: format YYYY-MM-DD
 function toLocalKey(dateStr) {
   return new Date(dateStr).toISOString().split("T")[0];
 }
@@ -387,8 +385,10 @@ function ProgressPanel() {
 
   if (q.isLoading)
     return (
-      <section className={`${card} p-5`}>
-        <p className="text-sm italic text-[#8C7F78] text-center">Loading progress…</p>
+      <section className={`${card} p-4 sm:p-5`}>
+        <p className="text-sm italic text-[#8C7F78] text-center">
+          Loading progress…
+        </p>
       </section>
     );
 
@@ -400,7 +400,9 @@ function ProgressPanel() {
     byDay[k] = (byDay[k] || 0) + 1;
   });
 
-  const labels = Object.keys(byDay).sort((a, b) => new Date(a) - new Date(b));
+  const labels = Object.keys(byDay).sort(
+    (a, b) => new Date(a) - new Date(b)
+  );
   const dataPoints = labels.map((d) => byDay[d]);
 
   // Streak
@@ -412,17 +414,21 @@ function ProgressPanel() {
       const prev = new Date(cur);
       prev.setDate(prev.getDate() - 1);
       cur = toLocalKey(prev);
-    } else break;
+    } else {
+      break;
+    }
   }
 
   return (
-    <section className={`${card} p-5`}>
+    <section className={`${card} p-4 sm:p-5`}>
       <h2 className={title}>Progress</h2>
 
       <div className="mt-3 flex items-center justify-between">
         <div className="bg-[#F9F5F0] border border-[#E8E1DA] rounded-xl px-4 py-2 shadow-sm">
           <p className="text-[13px] text-[#7E7A74]">🔥 Streak</p>
-          <p className="text-lg font-semibold text-[#2E2A26]">{streak} days</p>
+          <p className="text-lg font-semibold text-[#2E2A26]">
+            {streak} days
+          </p>
         </div>
       </div>
 
@@ -444,11 +450,13 @@ function ProgressPanel() {
             }}
             options={{
               responsive: true,
+              maintainAspectRatio: false,
               plugins: { legend: { display: false } },
               scales: {
                 y: { beginAtZero: true, ticks: { stepSize: 1 } },
               },
             }}
+            style={{ maxHeight: 260 }}
           />
         ) : (
           <p className="text-sm text-gray-400 text-center mt-6">

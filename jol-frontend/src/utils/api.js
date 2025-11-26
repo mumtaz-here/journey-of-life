@@ -1,7 +1,14 @@
+/**
+ * Journey of Life — Frontend API Utils (NO AI CALLS HERE)
+ * -------------------------------------------------------
+ * Semua AI berada di backend. Frontend hanya fetch & mutate.
+ */
+
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
   "http://localhost:5000/api";
 
+/* 🔐 safer fetch */
 async function safeFetch(url, options = {}) {
   try {
     const res = await fetch(url, {
@@ -16,24 +23,23 @@ async function safeFetch(url, options = {}) {
   }
 }
 
+/* ==========================================
+   📌 ENTRIES
+========================================== */
 export async function fetchEntries() {
   return safeFetch(`${API_BASE_URL}/entries`);
 }
 
-export async function createEntry(text, analysis = null) {
+export async function createEntry(text) {
   return safeFetch(`${API_BASE_URL}/entries`, {
     method: "POST",
-    body: JSON.stringify({ text, analysis }),
-  });
-}
-
-export async function deleteEntryByText(text) {
-  return safeFetch(`${API_BASE_URL}/entries/by-text`, {
-    method: "DELETE",
     body: JSON.stringify({ text }),
   });
 }
 
+/* ==========================================
+   ⭐ HIGHLIGHTS
+========================================== */
 export async function fetchHighlights() {
   return safeFetch(`${API_BASE_URL}/highlights`);
 }
@@ -57,6 +63,9 @@ export async function deleteHighlight(id) {
   });
 }
 
+/* ==========================================
+   🌿 HABITS
+========================================== */
 export async function fetchHabits() {
   return safeFetch(`${API_BASE_URL}/habits`);
 }
@@ -80,6 +89,26 @@ export async function deleteHabit(id) {
   });
 }
 
+/* ==========================================
+   📌 SUMMARIES (VIEW ONLY)
+========================================== */
 export async function fetchSummaries() {
   return safeFetch(`${API_BASE_URL}/summaries`);
+}
+
+/* ==========================================
+   📚 DAILY STORY (VIEW ONLY)
+========================================== */
+export async function fetchStory() {
+  return safeFetch(`${API_BASE_URL}/story`);
+}
+
+/* ==========================================
+   💬 CHAT (ONE-WAY AI Reflection)
+========================================== */
+export async function sendChatMessage(message) {
+  return safeFetch(`${API_BASE_URL}/chat`, {
+    method: "POST",
+    body: JSON.stringify({ message }),
+  });
 }
