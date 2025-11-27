@@ -1,16 +1,15 @@
 /**
- * Journey of Life — Daily Story (Reflections)
- * -------------------------------------------
- * Simple factual narrative for each day.
- * Written in calm Indonesian, third-person: sebut nama "Mumtaz" lalu "ia".
- * Tidak dramatis, tidak menambah fakta baru.
+ * Journey of Life — Daily Story (Factual Narrative)
+ * -------------------------------------------------
+ * A short, objective, third-person narrative of the day.
+ * No added details, no dramatization.
  */
 
 import pool from "../index.js";
 
 const storyModel = {
   /**
-   * Ambil semua story terurut terbaru
+   * Get all stories sorted by newest first
    */
   async getAll() {
     const { rows } = await pool.query(
@@ -22,7 +21,7 @@ const storyModel = {
   },
 
   /**
-   * Ambil 1 hari (YYYY-MM-DD)
+   * Get 1 day by YYYY-MM-DD
    */
   async getByDay(dayKey) {
     const { rows } = await pool.query(
@@ -36,7 +35,7 @@ const storyModel = {
   },
 
   /**
-   * Ambil rentang tanggal
+   * Get range of days
    */
   async getRange(from, to) {
     const { rows } = await pool.query(
@@ -50,7 +49,7 @@ const storyModel = {
   },
 
   /**
-   * Simpan atau update narasi harian (overwrite dengan versi terbaru AI)
+   * Insert or update a daily narrative
    */
   async save(dayKey, narrative) {
     const found = await pool.query(
@@ -79,12 +78,12 @@ const storyModel = {
   },
 
   /**
-   * Hapus story (admin/debug)
+   * Delete narrative (for admin/debug)
    */
   async remove(id) {
     await pool.query(`DELETE FROM reflections WHERE id = $1`, [id]);
     return true;
-  }
+  },
 };
 
 export default storyModel;

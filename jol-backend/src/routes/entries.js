@@ -1,11 +1,16 @@
 /**
- * Journey of Life — Route: Entries
- * AUTO Summary + AUTO Story with Multi-language Detection
+ * Journey of Life — Route: Entries (+ AI Daily Analysis)
  */
 
 import express from "express";
-import { getAllEntries, addEntry, getEntriesByDate } from "../db/models/entries.js";
+import {
+  getAllEntries,
+  addEntry,
+  getEntriesByDate,
+} from "../db/models/entries.js";
 import { upsertSummary } from "../db/models/summaries.js";
+import { parseAnalysis } from "../services/ai-parser.js";
+import { upsertAnalysis } from "../db/models/analysis.js";
 import storyModel from "../db/models/story.js";
 import { generateText } from "ai";
 import { createOpenRouter } from "@ai-sdk/openrouter";
@@ -13,7 +18,9 @@ import "dotenv/config";
 
 const router = express.Router();
 
-/* 🌿 OpenRouter Provider */
+/* ============================================================
+   Generate factual daily story + factual daily summary
+============================================================ */
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
   headers: {
@@ -23,75 +30,19 @@ const openrouter = createOpenRouter({
 });
 const FREE_MODEL = "openai/gpt-oss-20b:free";
 
-/* 📌 Helper — Local Date Key */
-function getDateKey(date = new Date()) {
+/* 🔎 Local date util */
+function getDayKey(date = new Date()) {
   const d = new Date(date);
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   return d.toISOString().split("T")[0];
 }
 
-/* 🌍 Detect User Language (Simple Heuristics) */
-function detectLang(text) {
-  const englishHits = (text.match(/[a-z]{3,}/gi) || []).length;
-  const indoHits = (text.match(/\b(aku|saya|nggak|lebih|tidur|makan|hari|bangun|lagi|ini|itu)\b/gi) || []).length;
-
-  if (englishHits > indoHits) return "en";
-  if (indoHits > englishHits) return "id";
-  return "id"; // default
-}
-
-/* ✏️ Generate Story + Summary Based on Language */
-async function generateStory(dayKey, entries) {
-  const fullText = entries.map((e) => e.text).join("\n") || "(Tidak ada teks)";
-  const lang = detectLang(fullText);
-
-  // 🗣 Rules Based on Language
-  const rules =
-    lang === "en"
-      ? `
-Write a short factual narrative.
-- English language
-- Third person: mention the user's name if exists in text
-- Do not add new details
-- Do not dramatize
-`
-      : `
-Tulis narasi faktual sangat singkat.
-- Bahasa Indonesia
-- Orang ketiga, sebut nama jika muncul di teks
-- Jangan menambah detail baru
-- Jangan dramatis atau puitis
-`;
-
-  const { text } = await generateText({
-    model: openrouter(FREE_MODEL),
-    system: rules,
-    prompt: fullText,
-  });
-
-  return storyModel.save(dayKey, text.trim());
-}
-
-async function generateSummary(dayKey, entries) {
-  const fullText = entries.map((e) => e.text).join("\n") || "(Tidak ada teks)";
-  const lang = detectLang(fullText);
-
-  const rules =
-    lang === "en"
-      ? `Summarize factually in short bullet points. No mood interpretation, no assumptions.`
-      : `Ringkas faktual poin-poin pendek. Jangan menambah interpretasi, jangan menambah asumsi.`;
-
-  const { text } = await generateText({
-    model: openrouter(FREE_MODEL),
-    system: rules,
-    prompt: fullText,
-  });
-
-  return upsertSummary(dayKey, text.trim());
-}
-
 /* ============================================================
-📌 POST New Entry + Auto Summary + Auto Story
+📌 POST New Entry
+- Save entry
+- Auto-update summary
+- Auto-update story
+- Auto-parse analysis (mood/energy/focus/highlights)
 ============================================================ */
 router.post("/", async (req, res) => {
   try {
@@ -100,19 +51,40 @@ router.post("/", async (req, res) => {
 
     // Save entry
     const entry = await addEntry(text.trim());
-    const dayKey = getDateKey(entry.created_at);
+    const dayKey = getDayKey(entry.created_at);
 
-    // Fetch today's entries
+    // Fetch all entries of the same day
     const entries = await getEntriesByDate(dayKey);
 
-    // Auto-process AI results
-    const summary = await generateSummary(dayKey, entries);
-    const story = await generateStory(dayKey, entries);
+    /* === AI Summary (factual short bullet points) === */
+    const { text: summaryText } = await generateText({
+      model: openrouter(FREE_MODEL),
+      system: `Summarize factually using short bullet points. Do not add interpretations.`,
+      prompt: entries.map((e) => e.text).join("\n"),
+    });
+    const summary = await upsertSummary(dayKey, summaryText.trim());
 
-    res.json({ ...entry, auto_summary: summary, auto_story: story });
+    /* === AI Story (simple factual narrative) === */
+    const { text: storyText } = await generateText({
+      model: openrouter(FREE_MODEL),
+      system: `Write a very short factual narrative. Do not add new details.`,
+      prompt: entries.map((e) => e.text).join("\n"),
+    });
+    const story = await storyModel.save(dayKey, storyText.trim());
+
+    /* === AI Analysis (mood/energy/focus/highlights) === */
+    const analysisData = await parseAnalysis(entries);
+    const analysis = await upsertAnalysis(dayKey, analysisData);
+
+    return res.json({
+      ...entry,
+      auto_summary: summary,
+      auto_story: story,
+      auto_analysis: analysis,
+    });
   } catch (err) {
     console.error("POST /entries error:", err);
-    res.status(500).json({ error: "failed" });
+    return res.status(500).json({ error: "failed to save or process entry" });
   }
 });
 
