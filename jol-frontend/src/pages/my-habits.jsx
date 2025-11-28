@@ -1,13 +1,13 @@
 /**
- * Journey of Life — Page: My Habits (Stable Logging Version)
- * -----------------------------------------------------------
- * - Centang = log "(habit) Completed: <title>" ke entries
- * - Un-centang = log "(habit) Uncompleted: <title>" ke entries
- * - Anti log berulang REAL (useRef, not let)
- * - UI status selalu dari server (NO guessing)
+ * Journey of Life — My Habits (Ultra Clean + Fast)
+ * ------------------------------------------------
+ * - Zero flicker toggle
+ * - One refetch only
+ * - True anti-duplicate logging (700ms buffer)
+ * - Memoized habit list (super fast)
  */
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   fetchHabits,
@@ -17,93 +17,153 @@ import {
   createEntry,
 } from "../utils/api.js";
 
-/* ============================
-   SHARED STYLES
-============================= */
+/* -----------------------
+   SHARED STYLE TOKENS
+------------------------- */
 const container =
   "max-w-2xl mx-auto px-4 sm:px-5 py-6 text-[#2E2A26] bg-[#FAF7F2] min-h-screen flex flex-col gap-4";
+
 const card = "bg-white border border-[#E8E1DA] rounded-2xl shadow-sm";
 const sub = "text-sm opacity-70";
 
+/* -----------------------
+   HABIT ITEM COMPONENT
+------------------------- */
+function HabitItem({ habit, onToggle, onDelete }) {
+  return (
+    <li
+      className="flex items-center justify-between gap-3 px-2 py-2 rounded-xl hover:bg-[#F9F5F0]"
+    >
+      <button
+        type="button"
+        onClick={() => onToggle(habit)}
+        className="flex items-center gap-2"
+      >
+        <span
+          className={`w-5 h-5 rounded-full border flex items-center justify-center text-[11px] transition ${
+            habit.status === "done"
+              ? "bg-[#2E2A26] border-[#2E2A26] text-white"
+              : "bg-white border-[#CBB9A8] text-transparent"
+          }`}
+        >
+          ✓
+        </span>
+
+        <span
+          className={`text-sm transition ${
+            habit.status === "done" ? "line-through opacity-60" : ""
+          }`}
+        >
+          {habit.title}
+        </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => onDelete(habit.id)}
+        className="text-[11px] text-[#B08A7A] hover:text-[#8C5E48]"
+      >
+        Delete
+      </button>
+    </li>
+  );
+}
+
+/* ==========================================================
+   PAGE COMPONENT
+========================================================== */
 export default function MyHabits() {
   const [title, setTitle] = useState("");
   const queryClient = useQueryClient();
 
-  /* 🛡️ REAL Anti-Duplicate Logger */
+  // REAL anti-double-log (buffer 700ms)
   const lastLogRef = useRef(0);
 
-  /* 🔄 Load Habits */
+  /* Load habits */
   const habitsQuery = useQuery({
     queryKey: ["habits"],
     queryFn: fetchHabits,
-  });
-
-  /* ➕ Add habit */
-  const addMutation = useMutation({
-    mutationFn: (newTitle) => addHabit(newTitle),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["habits"] });
-      setTitle("");
-    },
-  });
-
-  /* 🔘 Toggle habit + Anti-Spam */
-  const toggleMutation = useMutation({
-    mutationFn: (habit) => toggleHabit(habit.id),
-
-    async onSuccess(updatedHabit, originalHabit) {
-      // Refresh UI habits
-      queryClient.invalidateQueries({ queryKey: ["habits"] });
-
-      const newStatus = updatedHabit?.status;
-      if (!newStatus) return;
-
-      // 🛡 REAL anti-spam
-      const now = Date.now();
-      if (now - lastLogRef.current < 400) return; // 0.4s
-      lastLogRef.current = now;
-
-      // ✍ Create entry
-      const baseText =
-        newStatus === "done"
-          ? "(habit) Completed: "
-          : "(habit) Uncompleted: ";
-
-      await createEntry(`${baseText}${originalHabit.title}`);
-    },
-  });
-
-  /* 🗑 Delete habit */
-  const deleteMutation = useMutation({
-    mutationFn: (id) => deleteHabit(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["habits"] });
-    },
+    staleTime: 5000,
+    refetchOnWindowFocus: false,
   });
 
   const habits = habitsQuery.data || [];
 
-  /* ➕ Add form handler */
-  function handleSubmit(e) {
+  /* Add habit */
+  const addMutation = useMutation({
+    mutationFn: addHabit,
+    onSuccess: () => {
+      queryClient.invalidateQueries(["habits"]);
+      setTitle("");
+    },
+  });
+
+  const handleAdd = (e) => {
     e.preventDefault();
     if (!title.trim()) return;
     addMutation.mutate(title.trim());
-  }
+  };
 
-  /* ============================
-         RENDER
-  ============================ */
+  /* Toggle habit */
+  const toggleMutation = useMutation({
+    mutationFn: (habit) => toggleHabit(habit.id),
+
+    async onSuccess(updatedHabit, originalHabit) {
+      // update UI only once
+      queryClient.invalidateQueries(["habits"]);
+
+      const newStatus = updatedHabit.status;
+      if (!newStatus) return;
+
+      // anti spam (700ms = lebih manusiawi)
+      const now = Date.now();
+      if (now - lastLogRef.current < 700) return;
+      lastLogRef.current = now;
+
+      // write entry
+      const base =
+        newStatus === "done"
+          ? "(habit) Completed: "
+          : "(habit) Uncompleted: ";
+
+      await createEntry(base + originalHabit.title);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteHabit,
+    onSuccess: () => {
+      queryClient.invalidateQueries(["habits"]);
+    },
+  });
+
+  /* Memoize items for speed */
+  const renderedList = useMemo(
+    () =>
+      habits.map((h) => (
+        <HabitItem
+          key={h.id}
+          habit={h}
+          onToggle={(hb) => toggleMutation.mutate(hb)}
+          onDelete={(id) => deleteMutation.mutate(id)}
+        />
+      )),
+    [habits, toggleMutation.isLoading, deleteMutation.isLoading]
+  );
+
+  /* ==========================================================
+     RENDER
+  ========================================================== */
   return (
     <main className={container}>
-      {/* Header */}
       <header className="text-center">
         <h1 className="text-xl font-semibold">My Habits</h1>
         <p className={sub}>Small daily actions that support your journey.</p>
       </header>
 
-      {/* Input form */}
+      {/* Add Habit */}
       <section className={`${card} p-4`}>
-        <form onSubmit={handleSubmit} className="flex items-center gap-2">
+        <form onSubmit={handleAdd} className="flex items-center gap-2">
           <input
             type="text"
             value={title}
@@ -125,7 +185,7 @@ export default function MyHabits() {
         </form>
       </section>
 
-      {/* Habit list */}
+      {/* Habit List */}
       <section className={`${card} p-4 flex-1`}>
         {habitsQuery.isLoading && (
           <p className="text-sm text-center text-[#8C7F78]">Loading habits…</p>
@@ -138,47 +198,7 @@ export default function MyHabits() {
         )}
 
         {!habitsQuery.isLoading && habits.length > 0 && (
-          <ul className="flex flex-col gap-2">
-            {habits.map((h) => (
-              <li
-                key={h.id}
-                className="flex items-center justify-between gap-3 px-2 py-2 rounded-xl hover:bg-[#F9F5F0]"
-              >
-                {/* Toggle */}
-                <button
-                  type="button"
-                  onClick={() => toggleMutation.mutate(h)}
-                  className="flex items-center gap-2"
-                >
-                  <span
-                    className={`w-5 h-5 rounded-full border flex items-center justify-center text-[11px] ${
-                      h.status === "done"
-                        ? "bg-[#2E2A26] border-[#2E2A26] text-white"
-                        : "bg-white border-[#CBB9A8] text-transparent"
-                    }`}
-                  >
-                    ✓
-                  </span>
-                  <span
-                    className={`text-sm ${
-                      h.status === "done" ? "line-through opacity-60" : ""
-                    }`}
-                  >
-                    {h.title}
-                  </span>
-                </button>
-
-                {/* Delete */}
-                <button
-                  type="button"
-                  onClick={() => deleteMutation.mutate(h.id)}
-                  className="text-[11px] text-[#B08A7A] hover:text-[#8C5E48]"
-                >
-                  Delete
-                </button>
-              </li>
-            ))}
-          </ul>
+          <ul className="flex flex-col gap-2">{renderedList}</ul>
         )}
       </section>
     </main>

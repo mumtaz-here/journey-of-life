@@ -41,6 +41,23 @@ export async function getEntriesByDate(dateKey) {
   return result.rows;
 }
 
+// 🔍 Get entries since N last days (for lighter UIs)
+export async function getEntriesSince(days) {
+  const safeDays = Number.isFinite(days) && days > 0 ? Math.floor(days) : 30;
+
+  const result = await db.query(
+    `
+      SELECT *
+      FROM entries
+      WHERE created_at >= NOW() - $1::interval
+      ORDER BY created_at ASC;
+    `,
+    [`${safeDays} days`]
+  );
+
+  return result.rows;
+}
+
 // ➕ Insert entry (text only)
 export async function addEntry(text) {
   const result = await db.query(

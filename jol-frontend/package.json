@@ -15,6 +15,8 @@
     "@heroicons/react": "^2.2.0",
     "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/typography": "^0.5.10",
+    "@tanstack/query-persist-client-core": "^5.91.10",
+    "@tanstack/query-sync-storage-persister": "^5.90.13",
     "@tanstack/react-query": "^5.90.10",
     "chart.js": "^4.5.1",
     "date-fns": "^3.6.0",
@@ -25,6 +27,7 @@
     "react-chartjs-2": "^5.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.30.1",
+    "react-virtuoso": "^4.15.0",
     "recharts": "^3.3.0",
     "tailwind-merge": "^2.2.1"
   },

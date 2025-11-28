@@ -18,7 +18,7 @@ const openrouter = createOpenRouter({
   },
 });
 
-// 🎯 Model: Affordable but reliable deep reasoning
+// 🎯 Model
 const MODEL = "openai/gpt-4.1-mini";
 
 /**
@@ -28,6 +28,9 @@ const MODEL = "openai/gpt-4.1-mini";
  */
 export async function parseAnalysis(entries = []) {
   const text = entries.map((e) => e.text).join("\n") || "(no text)";
+
+  // Batasi input biar gak over-token
+  const limitedText = text.slice(0, 4000);
 
   const SYSTEM = `
 Analyze daily journal entries.
@@ -47,12 +50,15 @@ DO NOT:
 - Output anything outside JSON
 `;
 
-  const { text: raw } = await generateText({
-    model: openrouter(MODEL),
-    system: SYSTEM,
-    prompt: `
+  let raw;
+
+  try {
+    const response = await generateText({
+      model: openrouter(MODEL),
+      system: SYSTEM,
+      prompt: `
 Journal content:
-"${text}"
+"${limitedText}"
 
 Return in this strict JSON format:
 {
@@ -62,12 +68,23 @@ Return in this strict JSON format:
   "highlights": ["...", "..."]
 }
 `,
-  });
+      max_tokens: 500, // ⬅️ FIX PENTING
+    });
+
+    raw = response.text;
+  } catch (err) {
+    console.error("❌ AI parseAnalysis error:", err.message);
+    return {
+      mood: null,
+      energy: null,
+      focus: null,
+      highlights: [],
+    };
+  }
 
   try {
     return JSON.parse(raw);
   } catch {
-    // fallback if AI returns invalid JSON
     return {
       mood: null,
       energy: null,

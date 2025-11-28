@@ -7,10 +7,14 @@ import {
   getHabitsWithTodayStatus,
   getHabitWithTodayStatus,
   addHabit,
-  deleteHabit
+  deleteHabit,
 } from "../db/models/habits.js";
-import { getLogForDate, createLog, deleteLog } from "../db/models/habit-logs.js";
-import { addEntry, getAllEntries } from "../db/models/entries.js";
+import {
+  getLogForDate,
+  createLog,
+  deleteLog,
+} from "../db/models/habit-logs.js";
+import { addEntry, getEntriesByDate } from "../db/models/entries.js";
 import { upsertSummary } from "../db/models/summaries.js";
 import storyModel from "../db/models/story.js";
 
@@ -23,8 +27,8 @@ const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
   headers: {
     "HTTP-Referer": "http://localhost:5173",
-    "X-Title": "Journey of Life"
-  }
+    "X-Title": "Journey of Life",
+  },
 });
 
 function localKey() {
@@ -34,13 +38,17 @@ function localKey() {
 }
 
 async function updateStory(tk, todaysEntries) {
-  const filtered = todaysEntries.map(e => e.text).filter(t => !t.startsWith("(habit)")).join("\n") || "(rutinitas)";
-  const existing = await storyModel.getByDay(tk);
+  const filtered =
+    todaysEntries
+      .map((e) => e.text)
+      .filter((t) => !t.startsWith("(habit)"))
+      .join("\n") || "(rutinitas)";
 
   const { text } = await generateText({
     model: openrouter("openai/gpt-oss-20b:free"),
-    system: "Narasi faktual singkat tidak dramatis (orang ketiga, gunakan nama Mumtaz).",
-    prompt: filtered
+    system:
+      "Narasi faktual singkat tidak dramatis (orang ketiga, gunakan nama Mumtaz).",
+    prompt: filtered,
   });
 
   return storyModel.save(tk, text.trim());
@@ -57,7 +65,8 @@ router.get("/", async (_req, res) => {
 router.post("/", async (req, res) => {
   try {
     const { title } = req.body;
-    if (!title?.trim()) return res.status(400).json({ error: "title required" });
+    if (!title?.trim())
+      return res.status(400).json({ error: "title required" });
 
     res.json(await addHabit(title.trim()));
   } catch {
@@ -74,23 +83,26 @@ router.patch("/:id/toggle", async (req, res) => {
     existing ? await deleteLog(id, tk) : await createLog(id, tk);
 
     const habit = await getHabitWithTodayStatus(id, tk);
-    const base = habit.today_done ? "(habit) Completed: " : "(habit) Uncompleted: ";
+    const base = habit.today_done
+      ? "(habit) Completed: "
+      : "(habit) Uncompleted: ";
     await addEntry(`${base}${habit.title}`);
 
-    const allEntries = await getAllEntries();
-    const todays = allEntries.filter(e => e.created_at.toISOString().startsWith(tk));
+    // 💡 Hanya ambil entries HARI INI, bukan semua sejarah
+    const todays = await getEntriesByDate(tk);
 
     const { text: summaryText } = await generateText({
       model: openrouter("openai/gpt-oss-20b:free"),
       system: "Ringkas faktual bullet pendek tanpa opini.",
-      prompt: todays.map(e => e.text).join("\n")
+      prompt: todays.map((e) => e.text).join("\n"),
     });
 
     await upsertSummary(tk, summaryText.trim());
     await updateStory(tk, todays);
 
     res.json(habit);
-  } catch {
+  } catch (err) {
+    console.error("PATCH /habits/:id/toggle error:", err);
     res.status(500).json({ error: "failed" });
   }
 });

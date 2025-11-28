@@ -7,6 +7,7 @@ import {
   getAllEntries,
   addEntry,
   getEntriesByDate,
+  getEntriesSince,
 } from "../db/models/entries.js";
 import { upsertSummary } from "../db/models/summaries.js";
 import { parseAnalysis } from "../services/ai-parser.js";
@@ -88,11 +89,20 @@ router.post("/", async (req, res) => {
   }
 });
 
-/* 📌 GET All Entries */
-router.get("/", async (_req, res) => {
+/* 📌 GET Entries (optional ?days=N to limit history) */
+router.get("/", async (req, res) => {
   try {
+    const daysParam = req.query.days ? Number(req.query.days) : null;
+
+    if (daysParam && daysParam > 0) {
+      const rows = await getEntriesSince(daysParam);
+      return res.json(rows);
+    }
+
+    // Fallback lama: semua entries (dipakai internal / debugging)
     res.json(await getAllEntries());
-  } catch {
+  } catch (err) {
+    console.error("GET /entries error:", err);
     res.status(500).json({ error: "failed to fetch entries" });
   }
 });

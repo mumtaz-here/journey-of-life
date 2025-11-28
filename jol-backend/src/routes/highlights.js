@@ -7,10 +7,10 @@ import {
   getAllHighlights,
   addHighlight,
   toggleHighlight,
-  deleteHighlight
+  deleteHighlight,
 } from "../db/models/highlights.js";
 
-import { getAllEntries } from "../db/models/entries.js";
+import { getEntriesByDate } from "../db/models/entries.js";
 
 import { generateText } from "ai";
 import { createOpenRouter } from "@ai-sdk/openrouter";
@@ -21,8 +21,8 @@ const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
   headers: {
     "HTTP-Referer": "http://localhost:5173",
-    "X-Title": "Journey of Life"
-  }
+    "X-Title": "Journey of Life",
+  },
 });
 
 const FREE_MODEL = "openai/gpt-oss-20b:free";
@@ -35,35 +35,36 @@ router.get("/", async (_req, res) => {
   }
 });
 
-router.post("/", async (req, res) => {
+router.post("/", adminAuth, async (req, res) => {
   try {
     const { text, planned_date = null, auto = false } = req.body || {};
 
+    // Manual create
     if (!auto) {
-      if (!text?.trim()) return res.status(400).json({ error: "text required" });
+      if (!text?.trim())
+        return res.status(400).json({ error: "text required" });
       return res.json(await addHighlight(text.trim(), planned_date));
     }
 
-    if (auto && !req.headers["x-admin-key"])
-      return res.status(403).json({ error: "admin required" });
+    // Auto mode (admin only, e.g. cron)
+    const today = new Date();
+    const dayKey = today.toISOString().split("T")[0];
+    const todaysEntries = await getEntriesByDate(dayKey);
+    const todaysTexts = todaysEntries.map((e) => e.text);
 
-    if (req.body.auto === true) {
-      const entries = await getAllEntries();
-      const today = new Date().toISOString().split("T")[0];
-      const todaysTexts = entries.filter(e => e.created_at.toISOString().startsWith(today)).map(e => e.text);
+    if (!todaysTexts.length)
+      return res.json({ message: "no_entries_for_today" });
 
-      if (!todaysTexts.length) return res.json({ message: "no_entries_for_today" });
+    const { text: aiText } = await generateText({
+      model: openrouter(FREE_MODEL),
+      system: "Extract factual plans.",
+      prompt: todaysTexts.join("\n"),
+    });
 
-      const { text: aiText } = await generateText({
-        model: openrouter(FREE_MODEL),
-        system: "Extract factual plans.",
-        prompt: todaysTexts.join("\n")
-      });
-
-      return res.json({ message: "auto_done", extracted: aiText });
-    }
-
-  } catch {
+    // NOTE: di sini kamu bisa parse `aiText` → `addHighlight` kalau mau
+    return res.json({ message: "auto_done", extracted: aiText });
+  } catch (err) {
+    console.error("POST /highlights error:", err);
     res.status(500).json({ error: "failed" });
   }
 });
